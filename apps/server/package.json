@@ -1,0 +1,16 @@
+{
+  "name": "@lucidwallet/server",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@lucidwallet/core": "0.1.0",
+    "@lucidwallet/tools": "0.1.0",
+    "@lucidwallet/wallet-core": "0.1.0",
+    "@lucidwallet/shared": "0.1.0"
+  }
+}

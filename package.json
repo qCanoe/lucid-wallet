@@ -1,0 +1,19 @@
+{
+  "name": "lucidwallet",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "echo \"no lint configured\"",
+    "dev": "echo \"use app-specific dev scripts\"",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.1"
+  }
+}
