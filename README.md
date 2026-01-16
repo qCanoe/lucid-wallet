@@ -58,6 +58,7 @@ lucidWallet/
 ```
 
 **目录说明**：
+
 - `datasets/`：存放研究用的数据集、样例和标注
 - `experiments/`：实验运行日志，CLI 会自动写入 `logs/` 目录
 - `prototypes/`：原型实现和演示脚手架，包含使用文档
@@ -102,6 +103,7 @@ node apps/server/dist/cli.js --intent-file path/to/intent.json
 ```
 
 运行结果会：
+
 - 输出计划步骤和执行结果（JSON 格式）
 - 自动保存日志到 `experiments/logs/run_<timestamp>.json`
 
@@ -114,6 +116,7 @@ node apps/server/dist/cli.js --intent-file path/to/intent.json
 定义用户意图与执行计划的数据结构：
 
 **完整 IntentSpec**（用于生产环境）：
+
 ```ts
 {
   action_type: "swap",
@@ -126,6 +129,7 @@ node apps/server/dist/cli.js --intent-file path/to/intent.json
 ```
 
 **MVP Intent**（用于早期模拟原型）：
+
 ```ts
 {
   action: "send",
@@ -137,6 +141,7 @@ node apps/server/dist/cli.js --intent-file path/to/intent.json
 ```
 
 MVP Intent 是最小化的意图结构，专注于验证核心流程，支持：
+
 - 单动作类型（目前仅 `send`）
 - 单链单资产
 - 简化的计划生成（2-3 步）
@@ -145,18 +150,19 @@ MVP Intent 是最小化的意图结构，专注于验证核心流程，支持：
 
 统一工具接口，MVP 包含：
 
-| 工具 | 职责 | 类型 |
-|------|------|------|
-| `chain_read` | 余额、nonce、allowance 查询 | EVM |
-| `quote_route` | DEX 报价与路由 | EVM |
-| `build_tx` | 生成交易 calldata | EVM |
-| `simulate_tx` | 模拟/预执行 | EVM |
-| `sign_tx` | 签名（走 Wallet Core） | EVM |
-| `send_tx` | 广播交易 | EVM |
-| `wait_confirm` | 确认与收据解析 | EVM |
+| 工具                  | 职责                              | 类型 |
+| --------------------- | --------------------------------- | ---- |
+| `chain_read`        | 余额、nonce、allowance 查询       | EVM  |
+| `quote_route`       | DEX 报价与路由                    | EVM  |
+| `build_tx`          | 生成交易 calldata                 | EVM  |
+| `simulate_tx`       | 模拟/预执行                       | EVM  |
+| `sign_tx`           | 签名（走 Wallet Core）            | EVM  |
+| `send_tx`           | 广播交易                          | EVM  |
+| `wait_confirm`      | 确认与收据解析                    | EVM  |
 | `simulate_transfer` | 模拟转账执行（返回 mock tx hash） | Mock |
 
 **模拟工具**（`packages/tools/src/mock/`）：
+
 - 用于早期原型验证，无需真实链连接
 - 返回模拟的交易哈希和执行摘要
 - 支持错误场景测试（如无效金额）
@@ -171,6 +177,7 @@ MVP Intent 是最小化的意图结构，专注于验证核心流程，支持：
 - 错误分类与恢复
 
 **CLI 入口**（`apps/server/src/cli.ts`）：
+
 - 早期模拟 MVP 的命令行接口
 - 支持从样例文件或命令行参数读取意图
 - 自动生成计划并调用模拟执行器
@@ -224,6 +231,7 @@ logRun() 保存到 experiments/logs/
 ```
 
 **关键差异**：
+
 - 无需用户批准（模拟环境）
 - 无需真实链连接（mock 工具）
 - 最小化计划（仅验证核心流程）
@@ -233,12 +241,12 @@ logRun() 保存到 experiments/logs/
 
 ### 单元测试
 
-| 测试文件 | 覆盖内容 |
-|----------|----------|
-| `schemas.test.ts` | Intent/Plan/Consent schema 校验 |
-| `signer.test.ts` | ConsentScope 约束与拒绝路径 |
-| `orchestrator.plan.test.ts` | 计划生成与权限清单 |
-| `orchestrator.flow.test.ts` | 执行链路与输出串联 |
+| 测试文件                      | 覆盖内容                        |
+| ----------------------------- | ------------------------------- |
+| `schemas.test.ts`           | Intent/Plan/Consent schema 校验 |
+| `signer.test.ts`            | ConsentScope 约束与拒绝路径     |
+| `orchestrator.plan.test.ts` | 计划生成与权限清单              |
+| `orchestrator.flow.test.ts` | 执行链路与输出串联              |
 
 ### 早期模拟 MVP 验证
 
@@ -249,28 +257,13 @@ logRun() 保存到 experiments/logs/
 
 ## 错误码
 
-| 错误码 | 含义 |
-|--------|------|
-| `INSUFFICIENT_BALANCE` | 余额不足 |
-| `INSUFFICIENT_ALLOWANCE` | 授权不足 |
-| `SLIPPAGE_TOO_HIGH` | 滑点过大 |
-| `NONCE_CONFLICT` | nonce 冲突 |
-| `REVERT` | 合约 revert |
-
-## 下一步
-
-### 早期模拟 MVP 迭代
-- [ ] 扩展意图类型（swap、approve 等）
-- [ ] 增强计划生成（多步骤、条件分支）
-- [ ] 添加更多模拟工具（quote、simulate 等）
-- [ ] 完善错误场景测试（余额不足、授权失败等）
-- [ ] 日志分析与可视化工具
-
-### 生产环境功能
-- [ ] 接入真实 RPC 与 DEX 路由
-- [ ] 完善 Web UI（React/Vue）
-- [ ] 支持更多意图类型（deposit/withdraw/stake）
-- [ ] 集成硬件钱包/MPC/AA（ERC-4337）
+| 错误码                     | 含义        |
+| -------------------------- | ----------- |
+| `INSUFFICIENT_BALANCE`   | 余额不足    |
+| `INSUFFICIENT_ALLOWANCE` | 授权不足    |
+| `SLIPPAGE_TOO_HIGH`      | 滑点过大    |
+| `NONCE_CONFLICT`         | nonce 冲突  |
+| `REVERT`                 | 合约 revert |
 
 ## License
 
