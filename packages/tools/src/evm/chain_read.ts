@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { ToolDefinition } from "../types/tool";
+import { getErc20Interface, getProvider, resolveTokenAddress, useStubs } from "./config";
+import { getAddress } from "ethers";
 
 export const chainReadInputSchema = z.object({
   address: z.string(),
@@ -26,9 +28,49 @@ export const chainReadTool: ToolDefinition<
   requires_signature: false,
   is_retryable: true,
   required_permissions: [],
-  handler: async () => ({
-    balance: "1000000",
-    nonce: 0,
-    allowance: "1000000"
-  })
+  handler: async (input) => {
+    if (useStubs()) {
+      return {
+        balance: "1000000",
+        nonce: 0,
+        allowance: "1000000"
+      };
+    }
+
+    const provider = getProvider();
+    const owner = getAddress(input.address);
+
+    if (input.token) {
+      const tokenAddress = resolveTokenAddress(input.token);
+      const erc20 = getErc20Interface();
+      const balanceData = await provider.call({
+        to: tokenAddress,
+        data: erc20.encodeFunctionData("balanceOf", [owner])
+      });
+      const [balance] = erc20.decodeFunctionResult("balanceOf", balanceData);
+
+      let allowance: string | undefined;
+      if (input.spender) {
+        const spender = getAddress(input.spender);
+        const allowanceData = await provider.call({
+          to: tokenAddress,
+          data: erc20.encodeFunctionData("allowance", [owner, spender])
+        });
+        const [value] = erc20.decodeFunctionResult("allowance", allowanceData);
+        allowance = value.toString();
+      }
+
+      return {
+        balance: balance.toString(),
+        nonce: await provider.getTransactionCount(owner),
+        allowance
+      };
+    }
+
+    const balance = await provider.getBalance(owner);
+    return {
+      balance: balance.toString(),
+      nonce: await provider.getTransactionCount(owner)
+    };
+  }
 };

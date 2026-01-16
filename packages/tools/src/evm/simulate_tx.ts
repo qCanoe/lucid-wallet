@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ToolDefinition } from "../types/tool";
+import { getProvider, useStubs } from "./config";
 
 export const simulateTxInputSchema = z.object({
   to: z.string(),
@@ -24,8 +25,31 @@ export const simulateTxTool: ToolDefinition<
   requires_signature: false,
   is_retryable: true,
   required_permissions: [],
-  handler: async () => ({
-    success: true,
-    gas_used: "0"
-  })
+  handler: async (input) => {
+    if (useStubs()) {
+      return {
+        success: true,
+        gas_used: "0"
+      };
+    }
+
+    const provider = getProvider();
+    const request = {
+      to: input.to,
+      data: input.data,
+      value: input.value ? BigInt(input.value) : undefined
+    };
+
+    try {
+      await provider.call(request);
+      const gasUsed = await provider.estimateGas(request);
+      return {
+        success: true,
+        gas_used: gasUsed.toString()
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown_error";
+      throw new Error(`simulation_failed:${message}`);
+    }
+  }
 };

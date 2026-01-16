@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ToolDefinition } from "../types/tool";
+import { getProvider, useStubs } from "./config";
 
 export const sendTxInputSchema = z.object({
   signed_tx: z.string()
@@ -21,10 +22,18 @@ export const sendTxTool: ToolDefinition<
   is_retryable: true,
   required_permissions: [],
   handler: async (input) => {
-    const base = input.signed_tx.replace(/^0x/, "");
-    const prefix = base.slice(0, 12).padEnd(12, "0");
+    if (useStubs()) {
+      const base = input.signed_tx.replace(/^0x/, "");
+      const prefix = base.slice(0, 12).padEnd(12, "0");
+      return {
+        tx_hash: `0xhash_${prefix}`
+      };
+    }
+
+    const provider = getProvider();
+    const txHash = await provider.send("eth_sendRawTransaction", [input.signed_tx]);
     return {
-      tx_hash: `0xhash_${prefix}`
+      tx_hash: txHash
     };
   }
 };
