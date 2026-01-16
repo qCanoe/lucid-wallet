@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ToolDefinition } from "../types/tool";
-import { getErc20Interface, getProvider, resolveTokenAddress, useStubs } from "./config";
+import { ToolDefinition } from "../types/tool.js";
+import { getErc20Interface, getProvider, resolveTokenAddress, useStubs } from "./config.js";
 import { getAddress } from "ethers";
 
 export const chainReadInputSchema = z.object({

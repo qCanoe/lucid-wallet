@@ -1,4 +1,4 @@
-import { ToolDefinition } from "./types/tool";
+import { ToolDefinition } from "./types/tool.js";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition<unknown, unknown>>();

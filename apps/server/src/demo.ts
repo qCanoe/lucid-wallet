@@ -1,7 +1,7 @@
 import { IntentSpec } from "@lucidwallet/core";
 import { consentScopeSchema } from "@lucidwallet/core";
 import { Signer } from "@lucidwallet/wallet-core";
-import { Orchestrator } from "./orchestrator";
+import { Orchestrator } from "./orchestrator.js";
 
 export async function runDemo(): Promise<void> {
   const scope = consentScopeSchema.parse({

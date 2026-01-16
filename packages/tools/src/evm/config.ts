@@ -1,7 +1,9 @@
 import { Interface, JsonRpcProvider, getAddress, isAddress } from "ethers";
 
+// Native token placeholder for 1inch API
 const NATIVE_TOKEN_PLACEHOLDER = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
+// Singleton instances
 let provider: JsonRpcProvider | null = null;
 let erc20Interface: Interface | null = null;
 
@@ -11,6 +13,7 @@ export type DexConfig = {
   chainId: number;
 };
 
+// Check if stub mode should be used (for tests or explicit override)
 export const useStubs = (): boolean =>
   process.env.NODE_ENV === "test" || process.env.LUCIDWALLET_USE_STUBS === "true";
 
@@ -22,6 +25,7 @@ export const getRpcUrl = (): string => {
   return url;
 };
 
+// Get or create singleton RPC provider
 export const getProvider = (): JsonRpcProvider => {
   if (!provider) {
     provider = new JsonRpcProvider(getRpcUrl());
@@ -51,23 +55,28 @@ export const getDexConfig = (): DexConfig => {
   };
 };
 
+// Resolve token symbol to contract address via env vars or return address if already valid
 export const resolveTokenAddress = (asset: string): string => {
   const trimmed = asset.trim();
   if (trimmed.length === 0) {
     throw new Error("token_symbol_empty");
   }
+  // Return as-is if already a valid address
   if (trimmed.startsWith("0x") && isAddress(trimmed)) {
     return getAddress(trimmed);
   }
   const symbol = trimmed.toUpperCase();
+  // ETH uses native token placeholder
   if (symbol === "ETH") {
     return NATIVE_TOKEN_PLACEHOLDER;
   }
+  // Try env var LUCIDWALLET_EVM_TOKEN_<SYMBOL>
   const envKey = `LUCIDWALLET_EVM_TOKEN_${symbol}`;
   const envValue = process.env[envKey];
   if (envValue && isAddress(envValue)) {
     return getAddress(envValue);
   }
+  // Fallback to USDC-specific env var
   if (symbol === "USDC" && process.env.LUCIDWALLET_EVM_USDC_ADDRESS) {
     const usdc = process.env.LUCIDWALLET_EVM_USDC_ADDRESS;
     if (usdc && isAddress(usdc)) {
@@ -77,6 +86,7 @@ export const resolveTokenAddress = (asset: string): string => {
   throw new Error(`token_address_not_configured:${symbol}`);
 };
 
+// Get singleton ERC20 interface for balanceOf and allowance calls
 export const getErc20Interface = (): Interface => {
   if (!erc20Interface) {
     erc20Interface = new Interface([

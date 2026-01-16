@@ -18,11 +18,14 @@ lucidWallet/
 ├── apps/
 │   ├── server/          # Orchestrator + 执行状态机
 │   └── web/             # 前端 UI（任务卡片）
+├── datasets/            # 数据集与样例
+├── experiments/         # 实验日志与运行记录
 ├── packages/
 │   ├── core/            # IntentSpec / Plan / Consent / StepResult schema
 │   ├── tools/           # Tool Registry + EVM 工具集
 │   ├── wallet-core/     # Signer / TxQueue / SecureStorage / AuditLog
 │   └── shared/          # 通用常量与错误码
+├── prototypes/          # 原型实现与演示脚手架
 ├── vitest.config.ts
 ├── tsconfig.base.json
 ├── tsconfig.json

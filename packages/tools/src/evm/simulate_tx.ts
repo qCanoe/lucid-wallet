@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ToolDefinition } from "../types/tool";
-import { getProvider, useStubs } from "./config";
+import { ToolDefinition } from "../types/tool.js";
+import { getProvider, useStubs } from "./config.js";
 
 export const simulateTxInputSchema = z.object({
   to: z.string(),

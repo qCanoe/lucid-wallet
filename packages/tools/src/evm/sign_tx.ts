@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ToolDefinition } from "../types/tool";
+import { ToolDefinition } from "../types/tool.js";
 
 export const signTxInputSchema = z.object({
   chain: z.string(),

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ToolDefinition } from "../types/tool";
-import { getProvider, useStubs } from "./config";
+import { ToolDefinition } from "../types/tool.js";
+import { getProvider, useStubs } from "./config.js";
 
 export const waitConfirmInputSchema = z.object({
   tx_hash: z.string()
@@ -52,7 +52,7 @@ export const waitConfirmTool: ToolDefinition<
 
     return {
       status: receipt.status === 1 ? "confirmed" : "failed",
-      receipt: receipt as Record<string, unknown>
+      receipt: receipt as unknown as Record<string, unknown>
     };
   }
 };

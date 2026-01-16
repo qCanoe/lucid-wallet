@@ -17,7 +17,7 @@ import {
 } from "@lucidwallet/tools";
 import { Signer } from "@lucidwallet/wallet-core";
 import { ERROR_CODES } from "@lucidwallet/shared";
-import { ExecutionStateMachine } from "./state_machine";
+import { ExecutionStateMachine } from "./state_machine.js";
 
 export type RecoveryOption = "retry" | "adjust_slippage" | "adjust_amount";
 
@@ -358,7 +358,7 @@ export class Orchestrator {
           result: {
           step_id: step.step_id,
           status: "success",
-          simulation: output
+          simulation: output as Record<string, unknown>
           },
           output
         };

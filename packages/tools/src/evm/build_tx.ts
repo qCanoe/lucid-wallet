@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ToolDefinition } from "../types/tool";
+import { ToolDefinition } from "../types/tool.js";
 
 export const buildTxInputSchema = z.object({
   to: z.string(),

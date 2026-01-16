@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ToolDefinition } from "../types/tool";
-import { getDexConfig, resolveTokenAddress, useStubs } from "./config";
+import { ToolDefinition } from "../types/tool.js";
+import { getDexConfig, resolveTokenAddress, useStubs } from "./config.js";
 
 export const quoteRouteInputSchema = z.object({
   asset_in: z.string(),
