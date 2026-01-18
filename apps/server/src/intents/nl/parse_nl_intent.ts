@@ -38,6 +38,15 @@ const DEFAULT_TEMPLATE_FILE = path.join(
 let cachedTemplates: Template[] | null = null;
 let cachedTemplateFile: string | null = null;
 
+const getOpenAiConfig = (): { apiKey: string; model: string } | null => {
+  const apiKey = process.env.LUCIDWALLET_OPENAI_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+  const model = process.env.LUCIDWALLET_OPENAI_MODEL ?? "gpt-5.2";
+  return { apiKey, model };
+};
+
 const assertTemplateFile = (raw: unknown): TemplateFile => {
   if (!raw || typeof raw !== "object") {
     throw new Error("nl_template_invalid:root_not_object");
@@ -157,7 +166,7 @@ const compilePattern = (pattern: string, slots: Record<string, SlotSpec>): RegEx
     if (!slotSpec) {
       throw new Error(`nl_template_invalid:slot_not_defined:${slotName}`);
     }
-    output += slotRegexFor(slotName, slotSpec);
+    output += `\\s*${slotRegexFor(slotName, slotSpec)}\\s*`;
     cursor = match.index + match[0].length;
   }
   output += escapeRegex(pattern.slice(cursor));
@@ -204,6 +213,97 @@ const setPath = (target: Record<string, unknown>, key: string, value: unknown): 
   cursor[parts[parts.length - 1]] = value;
 };
 
+const parseWithOpenAi = async (input: string): Promise<IntentSpec> => {
+  const config = getOpenAiConfig();
+  if (!config) {
+    throw new Error("nlp_not_configured");
+  }
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: config.model,
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content:
+            "你是钱包意图解析器。把用户自然语言转换成 IntentSpec JSON。只输出 JSON，不要解释。"
+        },
+        {
+          role: "user",
+          content: input
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "IntentSpec",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              action_type: {
+                type: "string",
+                enum: [
+                  "send",
+                  "swap",
+                  "approve",
+                  "revoke",
+                  "deposit",
+                  "stake",
+                  "withdraw",
+                  "unstake",
+                  "batch",
+                  "rebalance",
+                  "schedule"
+                ]
+              },
+              chain: { type: "string" },
+              asset_in: { type: "string" },
+              asset_out: { type: "string" },
+              amount: { type: "string" },
+              constraints: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  slippage: { type: "number" },
+                  deadline: { type: "number" }
+                }
+              },
+              target_protocol: { type: "string" },
+              recipient: { type: "string" }
+            },
+            required: ["action_type", "chain", "amount"]
+          }
+        }
+      }
+    })
+  });
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`nlp_failed:${response.status}:${payload}`);
+  }
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error("nlp_failed:empty_response");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    throw new Error(`nlp_failed:invalid_json:${message}`);
+  }
+  return intentSpecSchema.parse(parsed);
+};
+
 const resolveMappingValue = (
   templateValue: string,
   slots: Record<string, string | number>
@@ -238,6 +338,19 @@ export const parseNaturalLanguageIntent = async (
   if (!text) {
     throw new Error("intent_parse_failed:empty_input");
   }
+  const config = getOpenAiConfig();
+  if (config) {
+    try {
+      return await parseWithOpenAi(text);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown_error";
+      if (!message.startsWith("nlp_not_configured")) {
+        // Fall back to template matching when LLM fails.
+        // eslint-disable-next-line no-empty
+      }
+    }
+  }
+
   const templates = await loadTemplates(options.templateFile);
   let bestIntent: IntentSpec | null = null;
   let bestScore = -1;

@@ -110,6 +110,11 @@ node apps/server/dist/cli.js --nl "用200 USDC换ETH滑点0.5%"
 # 指定自然语言模板文件
 node apps/server/dist/cli.js --nl "swap 200 USDC to ETH" --nl-template-file datasets/nl-templates/send_swap.json
 
+# 使用 OpenAI GPT-5.2 解析自然语言（失败时回退模板）
+set LUCIDWALLET_OPENAI_API_KEY=your_key
+set LUCIDWALLET_OPENAI_MODEL=gpt-5.2
+node apps/server/dist/cli.js --nl "用200 USDC换ETH滑点0.5%"
+
 # 从文件读取意图
 node apps/server/dist/cli.js --intent-file path/to/intent.json
 ```
