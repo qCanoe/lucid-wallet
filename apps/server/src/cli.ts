@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { IntentSpec, MvpIntent, StepResult } from "@lucidwallet/core";
+import { IntentSpec, MvpIntent, StepResult, consentScopeSchema } from "@lucidwallet/core";
 import { ERROR_CODES } from "@lucidwallet/shared";
 import { ToolRegistry } from "@lucidwallet/tools";
 import { simulateTransferTool } from "@lucidwallet/tools";
@@ -8,6 +8,8 @@ import { parseIntent } from "./intents/parse_intent.js";
 import { parseNaturalLanguageIntent } from "./intents/nl/parse_nl_intent.js";
 import { buildPlan } from "./plans/build_plan.js";
 import { logRun } from "./logs/log_run.js";
+import { Orchestrator } from "./orchestrator.js";
+import { Signer } from "@lucidwallet/wallet-core";
 
 const getArg = (args: string[], name: string): string | undefined => {
   const index = args.indexOf(name);
@@ -41,25 +43,6 @@ const mapErrorCode = (message: string): string => {
   return ERROR_CODES.REVERT;
 };
 
-const toMvpIntent = (intent: IntentSpec): MvpIntent => {
-  if (intent.action_type !== "send") {
-    throw new Error("intent_parse_failed:unsupported_action");
-  }
-  if (!intent.asset_in) {
-    throw new Error("intent_parse_failed:missing_asset");
-  }
-  if (!intent.recipient) {
-    throw new Error("intent_parse_failed:missing_recipient");
-  }
-  return {
-    action: "send",
-    chain: intent.chain,
-    asset: intent.asset_in,
-    amount: intent.amount,
-    to: intent.recipient
-  };
-};
-
 const run = async (): Promise<void> => {
   const args = process.argv.slice(2);
   const intentNl = getArg(args, "--intent-nl") ?? getArg(args, "--nl");
@@ -81,19 +64,31 @@ const run = async (): Promise<void> => {
       intentSpec = await parseNaturalLanguageIntent(intentNl, {
         templateFile: nlTemplateFile
       });
-      if (intentSpec.action_type !== "send") {
-        const logFile = await logRun({
-          intent: { nl: intentNl, intent_spec: intentSpec },
-          plan: null,
-          results: []
-        });
-        console.log("自然语言已解析为 IntentSpec。");
-        console.log("当前 CLI 仅支持 send 的模拟执行，未执行 swap。");
-        console.log(JSON.stringify({ intent: intentSpec }, null, 2));
-        console.log(`日志已写入: ${logFile}`);
-        return;
+      if (!process.env.LUCIDWALLET_USE_STUBS) {
+        process.env.LUCIDWALLET_USE_STUBS = "true";
       }
-      intent = toMvpIntent(intentSpec);
+      const scope = consentScopeSchema.parse({
+        chain: intentSpec.chain,
+        spender_allowlist: ["0xSWAP_CONTRACT"],
+        tokens: intentSpec.asset_in ? [intentSpec.asset_in] : [],
+        max_amount: intentSpec.amount,
+        expiry: Date.now() + 60_000,
+        risk_level: "low"
+      });
+      const signer = new Signer(scope);
+      const orchestrator = new Orchestrator(signer);
+      const execution = await orchestrator.execute(intentSpec);
+      plan = execution.plan;
+      results = execution.results;
+      const logFile = await logRun({
+        intent: { nl: intentNl, intent_spec: intentSpec },
+        plan,
+        results
+      });
+      console.log("NL 执行完成。");
+      console.log(JSON.stringify({ plan, results }, null, 2));
+      console.log(`日志已写入: ${logFile}`);
+      return;
     } else {
       let rawIntent = intentRaw ?? "";
       if (!rawIntent) {
@@ -129,11 +124,7 @@ const run = async (): Promise<void> => {
       }
     ];
 
-    const logFile = await logRun({
-      intent: intentSpec ? { nl: intentNl, intent_spec: intentSpec, mvp_intent: intent } : intent,
-      plan,
-      results
-    });
+    const logFile = await logRun({ intent, plan, results });
     console.log("MVP 模拟执行完成。");
     console.log(JSON.stringify({ plan, results }, null, 2));
     console.log(`日志已写入: ${logFile}`);
@@ -148,7 +139,7 @@ const run = async (): Promise<void> => {
       }
     ];
     const logFile = await logRun({
-      intent: intentSpec ? { nl: intentNl, intent_spec: intentSpec, mvp_intent: intent } : intent,
+      intent: intentSpec ? { nl: intentNl, intent_spec: intentSpec } : intent,
       plan,
       results,
       error: { code, message }

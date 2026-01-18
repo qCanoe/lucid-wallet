@@ -66,6 +66,48 @@ describe("parseNaturalLanguageIntent", () => {
     });
   });
 
+  it("parses English send intent with chain", async () => {
+    const intent = await parseNaturalLanguageIntent(
+      `transfer 1.25 usdc to ${address} on sepolia`,
+      { templateFile }
+    );
+    expect(intent).toEqual({
+      action_type: "send",
+      chain: "sepolia",
+      asset_in: "USDC",
+      amount: "1.25",
+      recipient: address
+    });
+  });
+
+  it("parses Chinese send intent with spacing", async () => {
+    const intent = await parseNaturalLanguageIntent(
+      `把 0.05 eth 转给 ${address}`,
+      { templateFile }
+    );
+    expect(intent).toEqual({
+      action_type: "send",
+      chain: "evm",
+      asset_in: "ETH",
+      amount: "0.05",
+      recipient: address
+    });
+  });
+
+  it("parses English swap intent with chain and spacing", async () => {
+    const intent = await parseNaturalLanguageIntent(
+      "swap 50 dai to usdc on arbitrum",
+      { templateFile }
+    );
+    expect(intent).toEqual({
+      action_type: "swap",
+      chain: "arbitrum",
+      asset_in: "DAI",
+      asset_out: "USDC",
+      amount: "50"
+    });
+  });
+
   it("throws when no template matches", async () => {
     await expect(
       parseNaturalLanguageIntent("please do something", { templateFile })

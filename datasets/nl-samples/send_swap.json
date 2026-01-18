@@ -40,5 +40,35 @@
       "amount": "200",
       "constraints": { "slippage": 0.5 }
     }
+  },
+  {
+    "text": "transfer 1.25 usdc to 0x3333333333333333333333333333333333333333 on sepolia",
+    "intent": {
+      "action_type": "send",
+      "chain": "sepolia",
+      "asset_in": "USDC",
+      "amount": "1.25",
+      "recipient": "0x3333333333333333333333333333333333333333"
+    }
+  },
+  {
+    "text": "把 0.05 eth 转给 0x4444444444444444444444444444444444444444",
+    "intent": {
+      "action_type": "send",
+      "chain": "evm",
+      "asset_in": "ETH",
+      "amount": "0.05",
+      "recipient": "0x4444444444444444444444444444444444444444"
+    }
+  },
+  {
+    "text": "swap 50 dai to usdc on arbitrum",
+    "intent": {
+      "action_type": "swap",
+      "chain": "arbitrum",
+      "asset_in": "DAI",
+      "asset_out": "USDC",
+      "amount": "50"
+    }
   }
 ]
