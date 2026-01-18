@@ -8,7 +8,8 @@ import { parseNaturalLanguageIntent } from "../intents/nl/parse_nl_intent.js";
 const templateFile = path.join(
   process.cwd(),
   "datasets",
-  "nl-templates",
+  "nl",
+  "templates",
   "send_swap.json"
 );
 

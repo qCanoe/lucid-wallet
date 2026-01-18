@@ -31,7 +31,8 @@ export type ParseNlOptions = {
 const DEFAULT_TEMPLATE_FILE = path.join(
   process.cwd(),
   "datasets",
-  "nl-templates",
+  "nl",
+  "templates",
   "send_swap.json"
 );
 

@@ -36,10 +36,11 @@ lucidWallet/
 ├── datasets/            # 数据集与样例
 │   └── mvp-samples/     # 早期模拟 MVP 样例
 │       └── intent_samples.json
-│   └── nl-templates/    # 自然语言规则模板
-│       └── send_swap.json
-│   └── nl-samples/      # 自然语言样例
-│       └── send_swap.json
+│   └── nl/              # 自然语言数据集
+│       ├── templates/   # 规则模板
+│       │   └── send_swap.json
+│       └── samples/     # 样例
+│           └── send_swap.json
 ├── experiments/         # 实验日志与运行记录
 │   └── logs/            # CLI 运行日志（自动生成）
 ├── packages/
@@ -108,7 +109,7 @@ node apps/server/dist/cli.js --nl "send 0.1 ETH to 0x111111111111111111111111111
 node apps/server/dist/cli.js --nl "用200 USDC换ETH滑点0.5%"
 
 # 指定自然语言模板文件
-node apps/server/dist/cli.js --nl "swap 200 USDC to ETH" --nl-template-file datasets/nl-templates/send_swap.json
+node apps/server/dist/cli.js --nl "swap 200 USDC to ETH" --nl-template-file datasets/nl/templates/send_swap.json
 
 # 使用 OpenAI GPT-5.2 解析自然语言（失败时回退模板）
 set LUCIDWALLET_OPENAI_API_KEY=your_key
