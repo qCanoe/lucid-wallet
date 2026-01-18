@@ -1,0 +1,115 @@
+{
+  "templates": [
+    {
+      "id": "send_en_basic",
+      "intent_type": "send",
+      "language": "en",
+      "patterns": [
+        "send {amount} {asset} to {recipient}",
+        "transfer {amount} {asset} to {recipient}",
+        "send {amount} {asset} to {recipient} on {chain}",
+        "transfer {amount} {asset} to {recipient} on {chain}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset": { "type": "asset" },
+        "recipient": { "type": "address" },
+        "chain": { "type": "chain" }
+      },
+      "mapping": {
+        "action_type": "send",
+        "chain": "{chain}",
+        "asset_in": "{asset}",
+        "amount": "{amount}",
+        "recipient": "{recipient}"
+      },
+      "defaults": { "chain": "evm" },
+      "confidence": 0.7
+    },
+    {
+      "id": "send_zh_basic",
+      "intent_type": "send",
+      "language": "zh",
+      "patterns": [
+        "把{amount}{asset}转给{recipient}",
+        "转{amount}{asset}给{recipient}",
+        "把{amount}{asset}转给{recipient}在{chain}",
+        "转{amount}{asset}给{recipient}在{chain}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset": { "type": "asset" },
+        "recipient": { "type": "address" },
+        "chain": { "type": "chain" }
+      },
+      "mapping": {
+        "action_type": "send",
+        "chain": "{chain}",
+        "asset_in": "{asset}",
+        "amount": "{amount}",
+        "recipient": "{recipient}"
+      },
+      "defaults": { "chain": "evm" },
+      "confidence": 0.7
+    },
+    {
+      "id": "swap_en_basic",
+      "intent_type": "swap",
+      "language": "en",
+      "patterns": [
+        "swap {amount} {asset_in} to {asset_out}",
+        "swap {amount} {asset_in} for {asset_out}",
+        "exchange {amount} {asset_in} to {asset_out}",
+        "swap {amount} {asset_in} to {asset_out} with slippage {slippage}",
+        "swap {amount} {asset_in} for {asset_out} with slippage {slippage}",
+        "swap {amount} {asset_in} to {asset_out} on {chain}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset_in": { "type": "asset" },
+        "asset_out": { "type": "asset" },
+        "slippage": { "type": "slippage" },
+        "chain": { "type": "chain" }
+      },
+      "mapping": {
+        "action_type": "swap",
+        "chain": "{chain}",
+        "asset_in": "{asset_in}",
+        "asset_out": "{asset_out}",
+        "amount": "{amount}",
+        "constraints.slippage": "{slippage}"
+      },
+      "defaults": { "chain": "evm" },
+      "confidence": 0.7
+    },
+    {
+      "id": "swap_zh_basic",
+      "intent_type": "swap",
+      "language": "zh",
+      "patterns": [
+        "用{amount}{asset_in}换{asset_out}",
+        "把{amount}{asset_in}换成{asset_out}",
+        "将{amount}{asset_in}兑换成{asset_out}",
+        "用{amount}{asset_in}换{asset_out}滑点{slippage}",
+        "用{amount}{asset_in}换{asset_out}在{chain}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset_in": { "type": "asset" },
+        "asset_out": { "type": "asset" },
+        "slippage": { "type": "slippage" },
+        "chain": { "type": "chain" }
+      },
+      "mapping": {
+        "action_type": "swap",
+        "chain": "{chain}",
+        "asset_in": "{asset_in}",
+        "asset_out": "{asset_out}",
+        "amount": "{amount}",
+        "constraints.slippage": "{slippage}"
+      },
+      "defaults": { "chain": "evm" },
+      "confidence": 0.7
+    }
+  ]
+}

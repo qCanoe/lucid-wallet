@@ -1,0 +1,44 @@
+[
+  {
+    "text": "send 0.1 ETH to 0x1111111111111111111111111111111111111111",
+    "intent": {
+      "action_type": "send",
+      "chain": "evm",
+      "asset_in": "ETH",
+      "amount": "0.1",
+      "recipient": "0x1111111111111111111111111111111111111111"
+    }
+  },
+  {
+    "text": "把0.2 USDC转给0x2222222222222222222222222222222222222222",
+    "intent": {
+      "action_type": "send",
+      "chain": "evm",
+      "asset_in": "USDC",
+      "amount": "0.2",
+      "recipient": "0x2222222222222222222222222222222222222222"
+    }
+  },
+  {
+    "text": "swap 200 usdc to eth with slippage 0.5%",
+    "intent": {
+      "action_type": "swap",
+      "chain": "evm",
+      "asset_in": "USDC",
+      "asset_out": "ETH",
+      "amount": "200",
+      "constraints": { "slippage": 0.5 }
+    }
+  },
+  {
+    "text": "用200 USDC换ETH滑点0.5%",
+    "intent": {
+      "action_type": "swap",
+      "chain": "evm",
+      "asset_in": "USDC",
+      "asset_out": "ETH",
+      "amount": "200",
+      "constraints": { "slippage": 0.5 }
+    }
+  }
+]
