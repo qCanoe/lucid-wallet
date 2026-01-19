@@ -105,6 +105,10 @@ export class Orchestrator {
     return { plan, results: this.stateMachine.getResults() };
   }
 
+  plan(intent: IntentSpec): Plan {
+    return this.createPlan(intent);
+  }
+
   getRecoveryOptions(): RecoveryOption[] {
     return ["retry", "adjust_slippage", "adjust_amount"];
   }

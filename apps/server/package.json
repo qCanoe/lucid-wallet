@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "cli": "node dist/cli.js"
+    "cli": "node dist/cli.js",
+    "api": "node dist/http.js"
   },
   "dependencies": {
     "@lucidwallet/core": "0.1.0",
