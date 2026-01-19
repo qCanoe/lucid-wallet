@@ -21,6 +21,43 @@ import { ExecutionStateMachine } from "./state_machine.js";
 
 export type RecoveryOption = "retry" | "adjust_slippage" | "adjust_amount";
 
+const NATIVE_ASSETS = new Set(["ETH"]);
+const ASSET_DECIMALS: Record<string, number> = {
+  ETH: 18,
+  USDC: 6,
+  USDT: 6,
+  DAI: 18
+};
+
+const isNativeAsset = (asset?: string): boolean => {
+  if (!asset) {
+    return false;
+  }
+  return NATIVE_ASSETS.has(asset.trim().toUpperCase());
+};
+
+const toBaseUnits = (amount: string, decimals: number): string => {
+  const normalized = amount.trim();
+  if (!normalized) {
+    return "0";
+  }
+  const [wholeRaw, fractionRaw = ""] = normalized.split(".");
+  const whole = wholeRaw.replace(/^0+(?=\d)/, "");
+  const fraction = fractionRaw.replace(/[^0-9]/g, "");
+  const paddedFraction = (fraction + "0".repeat(decimals)).slice(0, decimals);
+  const combined = `${whole}${paddedFraction}`.replace(/^0+/, "");
+  return combined.length > 0 ? combined : "0";
+};
+
+const normalizeAmountForChainRead = (amount: string, asset?: string): string => {
+  if (!amount.includes(".")) {
+    return amount;
+  }
+  const symbol = asset?.trim().toUpperCase() ?? "";
+  const decimals = ASSET_DECIMALS[symbol] ?? 18;
+  return toBaseUnits(amount, decimals);
+};
+
 export class Orchestrator {
   private readonly registry = new ToolRegistry();
   private readonly stateMachine = new ExecutionStateMachine();
@@ -76,16 +113,23 @@ export class Orchestrator {
     const steps: PlanStep[] = [];
     const needsApprove =
       intent.action_type === "approve" || intent.target_protocol === "approve+swap";
+    const assetIn = intent.asset_in ?? "";
+    const nativeAsset = isNativeAsset(assetIn);
+    const chainReadToken = nativeAsset ? undefined : assetIn;
+    const requiredAmount = intent.amount;
+    const sendValue = nativeAsset
+      ? normalizeAmountForChainRead(intent.amount, assetIn)
+      : "0";
 
     steps.push({
       step_id: "chain_read",
       tool: "chain_read",
       input: {
         address: "0xWALLET",
-        token: intent.asset_in ?? "",
-        spender: "0xSWAP_CONTRACT",
-        required_amount: intent.amount,
-        required_allowance: intent.amount
+        token: chainReadToken,
+        spender: needsApprove ? "0xSWAP_CONTRACT" : undefined,
+        required_amount: requiredAmount,
+        required_allowance: needsApprove ? requiredAmount : undefined
       },
       preconditions: [],
       postconditions: ["has_balance"]
@@ -150,6 +194,65 @@ export class Orchestrator {
         },
         preconditions: ["approve_sent"],
         postconditions: ["approve_confirmed"]
+      });
+    }
+
+    if (intent.action_type === "send") {
+      steps.push({
+        step_id: "build_send_tx",
+        tool: "build_tx",
+        input: {
+          to: intent.recipient ?? "",
+          data: "0x",
+          value: sendValue
+        },
+        preconditions: ["has_balance"],
+        postconditions: ["has_send_tx"]
+      });
+
+      steps.push({
+        step_id: "simulate_send_tx",
+        tool: "simulate_tx",
+        input: {
+          to: intent.recipient ?? "",
+          data: "0x",
+          value: sendValue
+        },
+        preconditions: ["has_send_tx"],
+        postconditions: ["send_simulated"]
+      });
+
+      steps.push({
+        step_id: "sign_send_tx",
+        tool: "sign_tx",
+        input: {
+          chain: intent.chain,
+          to: intent.recipient ?? "",
+          data: "0x",
+          value: sendValue
+        },
+        preconditions: ["send_simulated"],
+        postconditions: ["send_signed"]
+      });
+
+      steps.push({
+        step_id: "send_send_tx",
+        tool: "send_tx",
+        input: {
+          signed_tx: "0xSIGNED"
+        },
+        preconditions: ["send_signed"],
+        postconditions: ["send_sent"]
+      });
+
+      steps.push({
+        step_id: "wait_confirm_send",
+        tool: "wait_confirm",
+        input: {
+          tx_hash: "0x0"
+        },
+        preconditions: ["send_sent"],
+        postconditions: ["send_confirmed"]
       });
     }
 
@@ -236,9 +339,9 @@ export class Orchestrator {
         allowance: needsApprove
           ? [
               {
-                token: intent.asset_in ?? "",
+                token: assetIn,
                 spender: "0xSWAP_CONTRACT",
-                amount: intent.amount
+                amount: requiredAmount
               }
             ]
           : [],
@@ -308,6 +411,34 @@ export class Orchestrator {
       }
     }
 
+    if (step.step_id === "simulate_send_tx") {
+      const build = outputs.get("build_send_tx") as { to: string; data: string; value?: string };
+      if (build) {
+        updatedStep.input = { ...updatedStep.input, ...build };
+      }
+    }
+
+    if (step.step_id === "sign_send_tx") {
+      const build = outputs.get("build_send_tx") as { to: string; data: string; value?: string };
+      if (build) {
+        updatedStep.input = { ...updatedStep.input, ...build };
+      }
+    }
+
+    if (step.step_id === "send_send_tx") {
+      const signed = outputs.get("sign_send_tx") as { signed_tx: string };
+      if (signed) {
+        updatedStep.input = { ...updatedStep.input, signed_tx: signed.signed_tx };
+      }
+    }
+
+    if (step.step_id === "wait_confirm_send") {
+      const sent = outputs.get("send_send_tx") as { tx_hash: string };
+      if (sent) {
+        updatedStep.input = { ...updatedStep.input, tx_hash: sent.tx_hash };
+      }
+    }
+
     if (step.step_id === "send_swap_tx") {
       const signed = outputs.get("sign_swap_tx") as { signed_tx: string };
       if (signed) {
@@ -341,11 +472,14 @@ export class Orchestrator {
           required_allowance?: string;
         };
         const parsed = output as { balance: string; allowance?: string };
-        if (required_amount && BigInt(parsed.balance) < BigInt(required_amount)) {
-          throw new Error("insufficient_balance");
+        if (required_amount && !required_amount.includes(".")) {
+          if (BigInt(parsed.balance) < BigInt(required_amount)) {
+            throw new Error("insufficient_balance");
+          }
         }
         if (
           required_allowance &&
+          !required_allowance.includes(".") &&
           parsed.allowance &&
           BigInt(parsed.allowance) < BigInt(required_allowance)
         ) {

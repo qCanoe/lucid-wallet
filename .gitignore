@@ -36,6 +36,7 @@ coverage/
 # IDE and editors
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -111,6 +112,14 @@ dist/
 tmp/
 temp/
 *.tmp
+
+# Local generated assets / datasets
+.shared/
+image/
+
+# Monorepo tooling caches
+.turbo/
+.pnpm-store/
 
 # Lock files (uncomment if you want to ignore them)
 # package-lock.json
