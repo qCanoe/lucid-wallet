@@ -32,7 +32,6 @@ lucidWallet/
 │   │   │   ├── intents/            # 意图解析
 │   │   │   ├── plans/               # 计划生成
 │   │   │   └── logs/                # 日志记录
-│   │   └── web/                     # 前端 UI（任务卡片）
 ├── datasets/            # 数据集与样例
 │   └── mvp-samples/     # 早期模拟 MVP 样例
 │       └── intent_samples.json

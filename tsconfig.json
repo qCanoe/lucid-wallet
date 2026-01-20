@@ -5,7 +5,6 @@
     { "path": "packages/tools" },
     { "path": "packages/wallet-core" },
     { "path": "packages/shared" },
-    { "path": "apps/server" },
-    { "path": "apps/web" }
+    { "path": "apps/server" }
   ]
 }
