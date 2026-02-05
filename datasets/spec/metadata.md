@@ -1,43 +1,67 @@
-# Metadata（任务元信息）规范
+# Metadata Specification
 
-## 概述
+## Purpose
 
-Metadata 定义每条样例的上下文信息，包括链、任务类型、难度和账户初始状态。
+`metadata` provides the contextual information needed to interpret a dataset sample, including the target chain, task category, difficulty level, and an initial (informational) account snapshot.
 
-## 字段定义
+## Normative keywords
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `chain_id` | number | 是 | 链 ID |
-| `task_type` | string | 是 | 任务类型 |
-| `level` | string | 是 | 难度等级 |
-| `account_state` | object | 是 | 初始账户状态 |
+The keywords **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are to be interpreted as described in RFC 2119.
 
-## chain_id 取值
+## Dataset record shape (top-level)
 
-| chain_id | 网络 |
-|----------|------|
+Each JSONL line in `datasets/data/*.jsonl` is a JSON object with the following top-level fields:
+
+| Field | Type | Required | Description |
+|---|---:|:---:|---|
+| `id` | string | YES | Unique sample identifier within the file/dataset. |
+| `query` | string | YES | Natural-language user intent (see `spec/query.md`). |
+| `metadata` | object | YES | Context for the sample (this document). |
+| `constraints` | object | YES | User + system constraints (see `spec/constraints.md`). |
+
+## `metadata` fields
+
+| Field | Type | Required | Description |
+|---|---:|:---:|---|
+| `chain_id` | number | YES | EVM chain id. |
+| `task_type` | string | YES | Task category for MVP (`send` or `swap`). |
+| `level` | string | YES | Difficulty level (`easy`, `medium`, `hard`). |
+| `account_state` | object | YES | Informational account snapshot (see below). |
+
+## `chain_id` values (common)
+
+| `chain_id` | Network |
+|---:|---|
 | 1 | Ethereum Mainnet |
 | 11155111 | Sepolia Testnet |
 | 137 | Polygon |
 | 42161 | Arbitrum One |
 
-## task_type 取值（MVP）
+Notes:
 
-| 值 | 说明 |
-|----|------|
-| `swap` | 代币兑换 |
-| `send` | 转账 |
+- The dataset MAY include additional chain IDs beyond this table.
+- Tools may use environment configuration for chain selection; `chain_id` is the authoritative dataset label.
 
-## level 取值
+## `task_type` values (MVP)
 
-| 值 | 说明 |
-|----|------|
-| `easy` | 简单：单步操作，无复杂约束 |
-| `medium` | 中等：需要授权或多步操作 |
-| `hard` | 困难：复杂约束、多链或批量操作 |
+| Value | Meaning |
+|---|---|
+| `send` | Transfer an asset to a recipient |
+| `swap` | Swap one asset for another |
 
-## account_state 结构
+## `level` values
+
+| Value | Intended difficulty meaning |
+|---|---|
+| `easy` | Single-step, minimal constraints |
+| `medium` | May require allowance checks, approvals, or multi-step flows |
+| `hard` | Complex constraints, multi-hop/multi-asset, or advanced safety considerations |
+
+## `account_state` object
+
+`account_state` is an **informational snapshot** of the initial wallet state as represented in the dataset. Agents SHOULD still use tools to validate real balances/allowances when executing.
+
+**Shape**
 
 ```json
 {
@@ -57,15 +81,29 @@ Metadata 定义每条样例的上下文信息，包括链、任务类型、难�
 }
 ```
 
-### balances
+### `address`
 
-资产余额映射，key 为代币符号，value 为人类可读数量（字符串）。
+- **Type**: string
+- **Meaning**: the wallet address used as the source of funds.
+- **Format**: `0x`-prefixed 40-hex characters. Checksummed addresses are recommended.
 
-### allowances
+### `balances`
 
-已有授权映射，结构为 `{ token: { spender: amount } }`。
+- **Type**: object map `{ [asset: string]: string }`
+- **Meaning**: human-readable amounts (decimal strings) keyed by asset symbol (e.g., `ETH`, `USDC`).
+- **Notes**:
+  - These values are intended for dataset readability and may not be in base units.
+  - Agents SHOULD NOT assume these are authoritative without tool verification.
 
-## 完整示例
+### `allowances`
+
+- **Type**: nested object map `{ [asset: string]: { [spender: string]: string } }`
+- **Meaning**: pre-existing allowances (decimal strings) for ERC-20 assets, keyed by token symbol and spender address.
+- **Notes**:
+  - Spender keys SHOULD be EVM addresses.
+  - As with balances, values may be informational rather than authoritative.
+
+## Complete example
 
 ```json
 {
