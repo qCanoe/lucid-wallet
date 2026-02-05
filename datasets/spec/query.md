@@ -1,31 +1,40 @@
-# Query（任务描述）规范
+# Query Specification
 
-## 概述
+## Purpose
 
-Query 是用户意图的自然语言描述，仅说明"做什么"，不含具体操作细节。
+`query` is a natural-language description of the user's intent. It should describe **what outcome** the user wants, without prescribing the exact on-chain execution details.
 
-## 格式
+## Type and encoding
 
-- **类型**：纯文本字符串
-- **语言**：中文或英文
-- **长度**：建议 10-100 字符
+- **Type**: string
+- **Encoding**: UTF-8
+- **Recommended length**: 5–200 characters (longer is allowed if needed)
+- **Language**: any natural language (the dataset may contain Chinese and/or English)
 
-## 原则
+## Content rules (normative)
 
-1. **只描述目标**：不包含具体参数、地址、合约名
-2. **意图明确**：一条 query 对应一个主要任务
-3. **不含操作细节**：不指定使用哪个 DEX、哪条路径
+The `query` field:
 
-## MVP 覆盖的任务类型
+- **MUST** describe a single primary task (e.g., one swap or one send).
+- **SHOULD** include the minimum parameters needed to make the intent unambiguous:
+  - For `send`: recipient (address or ENS) and amount/asset.
+  - For `swap`: input amount/asset and desired output asset.
+- **MUST NOT** contain private keys, seed phrases, or other secrets.
+- **SHOULD NOT** specify low-level execution choices such as DEX names, routing hops, calldata, gas parameters, or contract addresses, unless the user explicitly included them.
+- **MAY** include addresses (`0x…`) or ENS names (e.g., `vitalik.eth`) when the recipient/target is part of the intent.
 
-| 类型 | 描述 | 示例 |
-|------|------|------|
-| `swap` | 代币兑换 | "把 100 USDC 换成 ETH" |
-| `send` | 转账 | "给 0xABC... 转 0.5 ETH" |
+## MVP task types covered
 
-## 示例
+The dataset focuses on two task types (see `metadata.task_type`):
 
-### Swap 类型
+| `task_type` | Meaning | Example `query` |
+|---|---|---|
+| `swap` | Swap one asset for another | `Swap 50 DAI to USDT` |
+| `send` | Send an asset to a recipient | `Transfer 1 ETH to vitalik.eth` |
+
+## Examples
+
+### Swap
 
 ```
 把 100 USDC 换成 ETH
@@ -33,18 +42,18 @@ Query 是用户意图的自然语言描述，仅说明"做什么"，不含具体
 Swap 50 DAI to USDT
 ```
 
-### Send 类型
+### Send
 
 ```
-给 0x1234...5678 转 0.5 ETH
-发送 100 USDC 到 0xABCD...
+给 0xABCDEF1234567890ABCDEF1234567890ABCDEF12 转 0.5 ETH
+发送 200 USDC 到 0x9876543210987654321098765432109876543210
 Transfer 1 ETH to vitalik.eth
 ```
 
-## JSON 字段
+## JSON field example
 
 ```json
 {
-  "query": "把 100 USDC 换成 ETH"
+  "query": "Swap 50 DAI to USDT"
 }
 ```
