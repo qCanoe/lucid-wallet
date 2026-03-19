@@ -168,7 +168,7 @@ MVP Intent is a minimal intent structure focused on validating core workflows, s
 
 - Single action type (currently only `send`)
 - Single chain, single asset
-- Simplified plan generation (2-3 steps)
+- JSON/sample CLI path: `buildPlan()` produces a single `simulate_transfer` step
 
 ### 2. Tool Registry (packages/tools)
 
@@ -205,9 +205,8 @@ Core scheduler responsible for:
 **CLI Entry Point** (`apps/server/src/cli.ts`):
 
 - Command-line interface for early simulation MVP
-- Supports reading intents from sample files or command-line arguments
-- Supports natural language parsing to `IntentSpec` (`--nl` / `--intent-nl`)
-- Automatically generates plans and invokes simulated executor
+- **Path A (`--nl` / `--intent-nl`)**: `parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()` (EVM tool stack; CLI sets `LUCIDWALLET_USE_STUBS=true` when not already set so runs default to stub/offline-friendly behavior)
+- **Path B (samples / `--intent` / `--intent-file`)**: `parseIntent()` → `MvpIntent` → `buildPlan()` → `simulate_transfer` only
 - Outputs results and saves logs to `experiments/logs/`
 
 ### 4. Wallet Core (packages/wallet-core)
@@ -243,26 +242,38 @@ After completion, produce result summary
 
 ### Early Simulation MVP Flow
 
+Two CLI execution paths (see `apps/server/src/cli.ts`):
+
+**Path A — Natural language (`--nl` / `--intent-nl`)**
+
 ```
-CLI input (JSON / sample index / natural language)
+NL string
     ↓
-parseIntent() parses to MvpIntent
-(Natural language: parseNaturalLanguageIntent() → IntentSpec → only send mapped to MvpIntent)
+parseNaturalLanguageIntent() → IntentSpec
     ↓
-buildPlan() generates minimal plan (1-2 steps)
+Orchestrator.execute() (EVM tools; stub mode when LUCIDWALLET_USE_STUBS=true)
     ↓
-Call simulate_transfer tool
+logRun() → experiments/logs/
+```
+
+**Path B — JSON or samples (no `--nl`)**
+
+```
+CLI input (JSON / sample index / --intent / --intent-file)
     ↓
-Return simulated result (tx_hash + summary)
+parseIntent() → MvpIntent
     ↓
-logRun() saves to experiments/logs/
+buildPlan() → single simulate_transfer step
+    ↓
+simulate_transfer tool → tx_hash + summary
+    ↓
+logRun() → experiments/logs/
 ```
 
 **Key Differences**:
 
-- No user approval required (simulated environment)
-- No real chain connection required (mock tools)
-- Minimal plan (only validates core workflow)
+- Path B uses only the mock `simulate_transfer` tool and does not run `Orchestrator`; Path A runs the full orchestrator stack (stubs by default in CLI).
+- No user approval required in these CLI flows (simulated / stubbed)
 - Automatic log recording (for experiment analysis)
 
 ## Dataset Specifications

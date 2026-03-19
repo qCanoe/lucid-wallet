@@ -170,7 +170,7 @@ MVP Intent 是最小化的意图结构，专注于验证核心流程，支持：
 
 - 单动作类型（目前仅 `send`）
 - 单链单资产
-- 简化的计划生成（2-3 步）
+- JSON/样例 CLI 路径：`buildPlan()` 仅生成一步 `simulate_transfer`
 
 ### 2. Tool Registry（packages/tools）
 
@@ -207,9 +207,8 @@ MVP Intent 是最小化的意图结构，专注于验证核心流程，支持：
 **CLI 入口**（`apps/server/src/cli.ts`）：
 
 - 早期模拟 MVP 的命令行接口
-- 支持从样例文件或命令行参数读取意图
-- 支持自然语言解析到 `IntentSpec`（`--nl` / `--intent-nl`）
-- 自动生成计划并调用模拟执行器
+- **路径 A（`--nl` / `--intent-nl`）**：`parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()`（EVM 工具链；若未显式设置，CLI 会将 `LUCIDWALLET_USE_STUBS=true`，默认走 stub/离线友好）
+- **路径 B（样例 / `--intent` / `--intent-file`）**：`parseIntent()` → `MvpIntent` → `buildPlan()` → 仅 `simulate_transfer`
 - 输出结果并保存日志到 `experiments/logs/`
 
 ### 4. Wallet Core（packages/wallet-core）
@@ -245,26 +244,38 @@ UI 展示任务卡片 + 授权清单
 
 ### 早期模拟 MVP 流程
 
+CLI 的两条执行路径（详见 `apps/server/src/cli.ts`）：
+
+**路径 A — 自然语言（`--nl` / `--intent-nl`）**
+
 ```
-CLI 输入（JSON / 样例索引 / 自然语言）
+自然语言字符串
     ↓
-parseIntent() 解析为 MvpIntent
-（自然语言：parseNaturalLanguageIntent() → IntentSpec → 仅 send 映射为 MvpIntent）
+parseNaturalLanguageIntent() → IntentSpec
     ↓
-buildPlan() 生成最小计划（1-2 步）
+Orchestrator.execute()（EVM 工具；LUCIDWALLET_USE_STUBS=true 时为 stub）
     ↓
-调用 simulate_transfer 工具
+logRun() → experiments/logs/
+```
+
+**路径 B — JSON 或样例（无 `--nl`）**
+
+```
+CLI 输入（JSON / 样例索引 / --intent / --intent-file）
     ↓
-返回模拟结果（tx_hash + summary）
+parseIntent() → MvpIntent
     ↓
-logRun() 保存到 experiments/logs/
+buildPlan() → 单步 simulate_transfer
+    ↓
+simulate_transfer 工具 → tx_hash + summary
+    ↓
+logRun() → experiments/logs/
 ```
 
 **关键差异**：
 
-- 无需用户批准（模拟环境）
-- 无需真实链连接（mock 工具）
-- 最小化计划（仅验证核心流程）
+- 路径 B 仅使用 mock 工具 `simulate_transfer`，不经过 `Orchestrator`；路径 A 走完整编排（CLI 默认 stub）。
+- 上述 CLI 流程中不要求用户批准（模拟 / stub）
 - 自动日志记录（便于实验分析）
 
 ## 数据集规范
