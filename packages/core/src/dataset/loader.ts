@@ -15,7 +15,7 @@ import {
 /** Filter criteria for querying loaded samples */
 export interface DatasetFilter {
   /** Filter by task type */
-  task_type?: "send" | "swap";
+  task_type?: "send" | "swap" | "approve" | "sign";
 
   /** Filter by difficulty level */
   level?: "easy" | "medium" | "hard";

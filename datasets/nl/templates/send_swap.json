@@ -1,0 +1,27 @@
+{
+  "templates": [
+    {
+      "id": "swap_basic_en",
+      "intent_type": "swap",
+      "language": "en",
+      "patterns": [
+        "swap {amount} {asset_in} to {asset_out} with slippage {slippage}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset_in": { "type": "asset" },
+        "asset_out": { "type": "asset" },
+        "slippage": { "type": "slippage" }
+      },
+      "mapping": {
+        "action_type": "swap",
+        "chain": "evm",
+        "asset_in": "{asset_in}",
+        "asset_out": "{asset_out}",
+        "amount": "{amount}",
+        "constraints.slippage": "{slippage}"
+      },
+      "confidence": 0.8
+    }
+  ]
+}

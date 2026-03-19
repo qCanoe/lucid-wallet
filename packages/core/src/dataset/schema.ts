@@ -43,7 +43,7 @@ export type AccountState = z.infer<typeof accountStateSchema>;
 // Metadata
 // ---------------------------------------------------------------------------
 
-export const taskType = z.enum(["send", "swap"]);
+export const taskType = z.enum(["send", "swap", "approve", "sign"]);
 
 export const difficultyLevel = z.enum(["easy", "medium", "hard"]);
 
@@ -79,6 +79,9 @@ export const userConstraintsSchema = z.object({
 
   /** Preferred DEX venue */
   preferred_dex: z.string().optional(),
+
+  /** User explicitly requests unlimited approval (may conflict with system policy) */
+  require_unlimited_approval: z.boolean().optional(),
 }).strict();
 
 export const systemConstraintsSchema = z.object({
