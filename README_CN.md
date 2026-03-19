@@ -39,15 +39,15 @@ lucidWallet/
 │   │   ├── constraints.md # 约束规范
 │   │   ├── tools.md     # 工具与环境规范
 │   │   └── output.md    # 输出格式规范
-│   └── data/            # 数据文件
-│       └── samples.jsonl
-│   └── mvp-samples/     # 早期模拟 MVP 样例
-│       └── intent_samples.json
-│   └── nl/              # 自然语言数据集
-│       ├── templates/   # 规则模板
-│       │   └── send_swap.json
-│       └── samples/     # 样例
+│   ├── data/            # 数据文件
+│   │   └── samples.jsonl
+│   ├── mvp-samples/     # 早期模拟 MVP 意图（JSON 数组）
+│   │   └── intent_samples.json
+│   └── nl/              # 自然语言模板
+│       └── templates/
 │           └── send_swap.json
+├── docs/                # 设计与实现计划
+│   └── plans/
 ├── experiments/         # 实验日志与运行记录
 │   └── logs/            # CLI 运行日志（自动生成）
 ├── packages/
@@ -74,6 +74,7 @@ lucidWallet/
 
 - `datasets/`：存放研究用的数据集、样例和标注
 - `datasets/spec/`：规范文档，遵循 RFC 2119 标准（MUST, SHOULD, MAY）
+- `docs/plans/`：带日期的实现计划（见 writing-plans / executing-plans 流程）
 - `experiments/`：实验运行日志，CLI 会自动写入 `logs/` 目录
 - `prototypes/`：原型实现和演示脚手架，包含使用文档
 
@@ -207,8 +208,8 @@ MVP Intent 是最小化的意图结构，专注于验证核心流程，支持：
 **CLI 入口**（`apps/server/src/cli.ts`）：
 
 - 早期模拟 MVP 的命令行接口
-- **路径 A（`--nl` / `--intent-nl`）**：`parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()`（EVM 工具链；若未显式设置，CLI 会将 `LUCIDWALLET_USE_STUBS=true`，默认走 stub/离线友好）
-- **路径 B（样例 / `--intent` / `--intent-file`）**：`parseIntent()` → `MvpIntent` → `buildPlan()` → 仅 `simulate_transfer`
+- **路径 A（`--nl` / `--intent-nl`，可选用 `--nl-template-file`）**：`parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()`（EVM 工具链；若未显式设置，CLI 会将 `LUCIDWALLET_USE_STUBS=true`，默认走 stub/离线友好）
+- **路径 B（样例 / `--intent` / `--intent-file` / `--sample-file`）**：`parseIntent()` → `MvpIntent` → `buildPlan()` → 仅 `simulate_transfer`
 - 输出结果并保存日志到 `experiments/logs/`
 
 ### 4. Wallet Core（packages/wallet-core）
@@ -261,7 +262,7 @@ logRun() → experiments/logs/
 **路径 B — JSON 或样例（无 `--nl`）**
 
 ```
-CLI 输入（JSON / 样例索引 / --intent / --intent-file）
+CLI 输入（JSON / 样例索引 / --intent / --intent-file / --sample-file）
     ↓
 parseIntent() → MvpIntent
     ↓
@@ -297,7 +298,10 @@ logRun() → experiments/logs/
 | 测试文件                      | 覆盖内容                        |
 | ----------------------------- | ------------------------------- |
 | `schemas.test.ts`           | Intent/Plan/Consent schema 校验 |
+| `dataset.test.ts`           | 数据集加载与样本校验            |
 | `signer.test.ts`            | ConsentScope 约束与拒绝路径     |
+| `build_plan.test.ts`        | MVP `buildPlan` → `simulate_transfer` 契约 |
+| `nl_orchestrator.test.ts`   | NL → `IntentSpec` → Orchestrator（stub） |
 | `orchestrator.plan.test.ts` | 计划生成与权限清单              |
 | `orchestrator.flow.test.ts` | 执行链路与输出串联              |
 

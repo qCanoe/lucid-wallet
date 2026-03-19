@@ -39,13 +39,15 @@ lucidWallet/
 │   │   ├── constraints.md # Constraints specification
 │   │   ├── tools.md     # Tools & environment specification
 │   │   └── output.md    # Output format specification
-│   └── data/            # Data files
-│       └── samples.jsonl
-│   └── nl/              # Natural language datasets
-│       ├── templates/   # Rule templates
-│       │   └── send_swap.json
-│       └── samples/     # Samples
-│           └── send_swap.json
+│   ├── data/            # Data files
+│   │   └── samples.jsonl
+│   ├── mvp-samples/     # Early simulation MVP intents (JSON array)
+│   │   └── intent_samples.json
+│   ├── nl/              # Natural language templates
+│   │   └── templates/
+│   │       └── send_swap.json
+├── docs/                # Design and implementation plans
+│   └── plans/
 ├── experiments/         # Experiment logs and run records
 │   └── logs/            # CLI run logs (auto-generated)
 ├── packages/
@@ -72,6 +74,7 @@ lucidWallet/
 
 - `datasets/`: Contains research datasets, samples, and annotations
 - `datasets/spec/`: Specification documents following RFC 2119 standards (MUST, SHOULD, MAY)
+- `docs/plans/`: Dated implementation plans (see writing-plans / executing-plans workflow)
 - `experiments/`: Experiment run logs, CLI automatically writes to `logs/` directory
 - `prototypes/`: Prototype implementations and demo scaffolding with usage documentation
 
@@ -205,8 +208,8 @@ Core scheduler responsible for:
 **CLI Entry Point** (`apps/server/src/cli.ts`):
 
 - Command-line interface for early simulation MVP
-- **Path A (`--nl` / `--intent-nl`)**: `parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()` (EVM tool stack; CLI sets `LUCIDWALLET_USE_STUBS=true` when not already set so runs default to stub/offline-friendly behavior)
-- **Path B (samples / `--intent` / `--intent-file`)**: `parseIntent()` → `MvpIntent` → `buildPlan()` → `simulate_transfer` only
+- **Path A (`--nl` / `--intent-nl`, optional `--nl-template-file`)**: `parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()` (EVM tool stack; CLI sets `LUCIDWALLET_USE_STUBS=true` when not already set so runs default to stub/offline-friendly behavior)
+- **Path B (samples / `--intent` / `--intent-file` / `--sample-file`)**: `parseIntent()` → `MvpIntent` → `buildPlan()` → `simulate_transfer` only
 - Outputs results and saves logs to `experiments/logs/`
 
 ### 4. Wallet Core (packages/wallet-core)
@@ -259,7 +262,7 @@ logRun() → experiments/logs/
 **Path B — JSON or samples (no `--nl`)**
 
 ```
-CLI input (JSON / sample index / --intent / --intent-file)
+CLI input (JSON / sample index / --intent / --intent-file / --sample-file)
     ↓
 parseIntent() → MvpIntent
     ↓
@@ -295,7 +298,10 @@ All specifications use normative keywords (MUST, SHOULD, MAY) as defined in RFC 
 | Test File                      | Coverage                              |
 | ----------------------------- | ------------------------------------- |
 | `schemas.test.ts`             | Intent/Plan/Consent schema validation |
+| `dataset.test.ts`             | Dataset loader and sample validation  |
 | `signer.test.ts`              | ConsentScope constraints and rejection paths |
+| `build_plan.test.ts`          | MVP `buildPlan` → `simulate_transfer` contract |
+| `nl_orchestrator.test.ts`     | NL → `IntentSpec` → Orchestrator (stubs) |
 | `orchestrator.plan.test.ts`   | Plan generation and permission list   |
 | `orchestrator.flow.test.ts`   | Execution chain and output chaining   |
 
