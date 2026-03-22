@@ -1,326 +1,451 @@
-# Lucid Wallet — MVP 0.1
+# Lucid Wallet
 
-> Users express intents in natural language or structured forms, and the system automatically decomposes, plans, invokes tools, executes transactions, and handles failure rollback/retry, ultimately completing tasks with **minimal interaction**.
+> An intent-driven agent wallet. Users express intents in natural language or structured form; the system automatically decomposes, plans, invokes tools, executes transactions, and handles failure recovery — completing tasks with **minimal interaction**.
+
+[![Tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)](#test-coverage)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](#license)
+
+---
+
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Directory Structure](#directory-structure)
+- [Quick Start](#quick-start)
+- [CLI Reference](#cli-reference)
+- [HTTP API](#http-api)
+- [Core Modules](#core-modules)
+- [Data Flow](#data-flow)
+- [Dataset Specifications](#dataset-specifications)
+- [Test Coverage](#test-coverage)
+- [Error Codes](#error-codes)
+- [Roadmap](#roadmap)
+
+---
 
 ## Project Overview
 
-Lucid (Agent Wallet) is an intent-driven smart wallet. MVP 0.1 implements:
+Lucid Wallet is an intent-driven smart wallet built as an AI agent. It takes a user intent (natural language or JSON), plans a transaction sequence, executes it step-by-step through a typed tool registry, and records a full audit trail.
 
-- **Intent Loop**: `swap` and `approve+swap`
-- **Execution State Machine**: `DRAFT → PLANNED → APPROVED → EXECUTING → CONFIRMED → DONE/FAILED`
-- **Minimal Permissions**: ConsentScope constraints (chain, spender, token, amount, validity period)
-- **Failure Recovery**: Error classification and recovery options (retry / adjust_slippage / adjust_amount)
+**Current feature status:**
 
-### Early Simulation MVP (Research Prototype)
+| Feature | Status | Notes |
+|---|---|---|
+| Intent parsing — NL + JSON | ✅ | Template-based; OpenAI GPT fallback |
+| Execution orchestrator | ✅ | State machine, 8 EVM tools |
+| Stub / offline mode | ✅ | `LUCIDWALLET_USE_STUBS=true` |
+| CLI — `--engine mock\|orchestrator` | ✅ | JSON/sample + NL paths |
+| HTTP API — `/api/plan` `/api/execute` | ✅ | Node `http`, CORS, stub mode |
+| ConsentScope / Signer | ✅ | Permission-minimized signing |
+| AuditLog | ✅ | Per-step events in `execute()` return value |
+| TxQueue | ✅ | Nonce management, concurrency limits |
+| RFC 2119 dataset specs | ✅ | 6 spec files |
+| Real EVM RPC | 🔲 | Phase 4 |
+| Frontend UI | 🔲 | Phase 5 |
 
-To quickly validate core workflows, the project includes an **early simulation MVP** that provides:
+### Execution State Machine
 
-- **CLI Prototype**: Command-line tool to validate intent → plan → execution loop
-- **Simulated Executor**: Test complete workflows without real chain connection
-- **Experiment Logs**: Automatically record intent, plan, and results for each run
-- **Sample Dataset**: 5 fixed intent samples for quick validation
-- **Natural Language Parsing**: Parse Chinese/English rules/templates into `IntentSpec` (initially covers `send/swap`)
+```
+DRAFT → PLANNED → APPROVED → EXECUTING → CONFIRMED → DONE
+                                        ↘ FAILED
+```
+
+---
 
 ## Directory Structure
 
 ```
-lucidWallet/
+lucid-wallet/
 ├── apps/
-│   ├── server/          # Orchestrator + Execution State Machine + CLI
-│   │   ├── src/
-│   │   │   ├── cli.ts              # CLI entry point
-│   │   │   ├── intents/            # Intent parsing
-│   │   │   ├── plans/               # Plan generation
-│   │   │   └── logs/                # Logging
-├── datasets/            # Datasets and samples
-│   ├── spec/            # Specification documents (RFC 2119 compliant)
-│   │   ├── query.md     # Query specification
-│   │   ├── metadata.md  # Metadata specification
-│   │   ├── constraints.md # Constraints specification
-│   │   ├── tools.md     # Tools & environment specification
-│   │   └── output.md    # Output format specification
-│   ├── data/            # Data files
-│   │   └── samples.jsonl
-│   ├── mvp-samples/     # Early simulation MVP intents (JSON array)
-│   │   └── intent_samples.json
-│   ├── nl/              # Natural language templates
-│   │   └── templates/
-│   │       └── send_swap.json
-├── docs/                # Design and implementation plans
-│   └── plans/
-├── experiments/         # Experiment logs and run records
-│   └── logs/            # CLI run logs (auto-generated)
+│   └── server/                    # Orchestrator · CLI · HTTP server
+│       └── src/
+│           ├── cli.ts             # CLI entry point
+│           ├── http.ts            # HTTP server (/api/plan, /api/execute)
+│           ├── orchestrator.ts    # Orchestrator + AuditLog
+│           ├── state_machine.ts   # ExecutionStateMachine
+│           ├── intents/           # Intent parsing
+│           │   └── nl/            # Template NL parser + OpenAI fallback
+│           ├── plans/             # buildPlan() for mock path
+│           ├── logs/              # logRun()
+│           └── __tests__/
 ├── packages/
-│   ├── core/            # IntentSpec / Plan / Consent / StepResult schema
-│   │   └── src/schemas/
-│   │       ├── mvp-intent.ts       # MVP intent structure
-│   │       └── mvp-plan.ts          # MVP plan structure
-│   ├── tools/           # Tool Registry + EVM toolset
+│   ├── core/                      # IntentSpec · MvpIntent · Plan · Consent · StepResult
 │   │   └── src/
-│   │       ├── mock/                # Mock tools
-│   │       │   └── simulate_transfer.ts
-│   │       └── evm/                 # EVM tools (real chain)
-│   ├── wallet-core/     # Signer / TxQueue / SecureStorage / AuditLog
-│   └── shared/          # Common constants and error codes
-├── prototypes/          # Prototype implementations and demo scaffolding
-│   └── mvp-sim-cli/     # Early simulation MVP CLI documentation
+│   │       ├── schemas/
+│   │       └── dataset/           # DatasetLoader · filter · stats
+│   ├── tools/                     # ToolRegistry + 8 tools
+│   │   └── src/
+│   │       ├── evm/               # chain_read quote_route build_tx simulate_tx
+│   │       │                      # sign_tx send_tx wait_confirm
+│   │       └── mock/              # simulate_transfer
+│   ├── wallet-core/               # Signer · TxQueue · AuditLog · SecureStorage
+│   └── shared/                    # ERROR_CODES
+├── datasets/
+│   ├── spec/                      # RFC 2119 specs (query metadata constraints tools output coverage)
+│   ├── data/samples.jsonl         # JSONL dataset
+│   ├── mvp-samples/               # intent_samples.json (5 fixed intents)
+│   └── nl/templates/              # NL template files
+├── docs/plans/                    # Dated implementation plans
+├── experiments/logs/              # CLI run logs (auto-generated)
+├── ROADMAP.md                     # Versioned roadmap
 ├── vitest.config.ts
-├── tsconfig.base.json
-├── tsconfig.json
 └── package.json
 ```
 
-**Directory Notes**:
-
-- `datasets/`: Contains research datasets, samples, and annotations
-- `datasets/spec/`: Specification documents following RFC 2119 standards (MUST, SHOULD, MAY)
-- `docs/plans/`: Dated implementation plans (see writing-plans / executing-plans workflow)
-- `experiments/`: Experiment run logs, CLI automatically writes to `logs/` directory
-- `prototypes/`: Prototype implementations and demo scaffolding with usage documentation
+---
 
 ## Quick Start
 
-### Install Dependencies
-
 ```bash
-npm install
+npm install          # install dependencies
+npm run test         # run all tests (49 passing)
+npm run build        # compile TypeScript
 ```
 
-### Run Tests
+---
+
+## CLI Reference
+
+```bash
+node apps/server/dist/cli.js [options]
+```
+
+### Input flags
+
+| Flag | Description |
+|---|---|
+| *(none)* | Load sample 0 from default sample file |
+| `--sample-index <n>` | Load sample at index n |
+| `--sample-file <path>` | Custom sample JSON array file |
+| `--intent '<json>'` | Inline MvpIntent JSON |
+| `--intent-file <path>` | Load MvpIntent from file |
+| `--nl '<text>'` | Natural language intent |
+| `--intent-nl '<text>'` | Alias for `--nl` |
+| `--nl-template-file <path>` | Custom NL template file |
+
+### `--engine` flag
+
+| Value | Default for | Execution path |
+|---|---|---|
+| `mock` | JSON / sample path | `MvpIntent → buildPlan() → simulate_transfer` |
+| `orchestrator` | — | `MvpIntent → IntentSpec → Orchestrator.execute()` |
+| *(implicit)* | `--nl` path | always uses `Orchestrator.execute()` |
+
+### Examples
+
+```bash
+# Default: sample 0, mock engine
+node apps/server/dist/cli.js
+
+# Specific sample
+node apps/server/dist/cli.js --sample-index 2
+
+# JSON intent, mock engine (default)
+node apps/server/dist/cli.js \
+  --intent '{"action":"send","chain":"sepolia","asset":"ETH","amount":"0.1","to":"0xABCD..."}'
+
+# JSON intent, full orchestrator + stubs
+node apps/server/dist/cli.js \
+  --intent '{"action":"send","chain":"sepolia","asset":"ETH","amount":"0.1","to":"0xABCD..."}' \
+  --engine orchestrator
+
+# Natural language (template-matched)
+node apps/server/dist/cli.js --nl "swap 200 USDC to ETH with slippage 0.5%"
+
+# Natural language with custom template file
+node apps/server/dist/cli.js \
+  --nl "swap 200 USDC to ETH with slippage 0.5%" \
+  --nl-template-file datasets/nl/templates/send_swap.json
+
+# Natural language via OpenAI
+LUCIDWALLET_OPENAI_API_KEY=sk-... node apps/server/dist/cli.js \
+  --nl "用200 USDC换ETH，滑点0.5%"
+```
+
+All runs write a JSON log to `experiments/logs/run_<timestamp>.json`.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `LUCIDWALLET_USE_STUBS` | `true` (CLI/HTTP) | Stub responses for all EVM tools |
+| `LUCIDWALLET_EVM_RPC_URL` | — | RPC endpoint for real chain calls |
+| `LUCIDWALLET_OPENAI_API_KEY` | — | Enable OpenAI NL parsing |
+| `LUCIDWALLET_OPENAI_MODEL` | `gpt-5.2` | OpenAI model name |
+| `LUCIDWALLET_HTTP_NO_AUTOSTART` | — | Suppress HTTP server auto-start (tests) |
+| `PORT` | `4000` | HTTP server port |
+
+---
+
+## HTTP API
+
+Start the server:
+
+```bash
+node apps/server/dist/http.js
+# Lucid API server running on http://localhost:4000
+```
+
+### `POST /api/plan`
+
+Parse a natural language intent and return the execution plan (no execution).
+
+**Request:**
+
+```json
+{ "text": "swap 200 USDC to ETH with slippage 0.5%", "templateFile": "..." }
+```
+
+`templateFile` is optional.
+
+**Response 200:**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "intent_spec": { "action_type": "swap", "chain": "evm", "asset_in": "USDC", "asset_out": "ETH", "amount": "200", "constraints": { "slippage": 0.5 } },
+    "plan": { "plan_id": "plan_...", "steps": [...], "required_permissions": { ... } },
+    "scope": { "chain": "evm", "max_amount": "200", ... }
+  }
+}
+```
+
+### `POST /api/execute`
+
+Parse and fully execute the intent (stub mode by default).
+
+**Request:** same as `/api/plan`
+
+**Response 200:**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "plan": { ... },
+    "results": [
+      { "step_id": "chain_read", "status": "success" },
+      { "step_id": "quote_route", "status": "success" },
+      { "step_id": "build_swap_tx", "status": "success" },
+      ...
+    ],
+    "scope": { ... }
+  }
+}
+```
+
+### Error responses
+
+| Status | `error.message` | Cause |
+|---|---|---|
+| `400` | `missing_text` | `text` field absent or blank |
+| `404` | `not_found` | Unknown route or wrong HTTP method |
+| `500` | *(error detail)* | NL parse failure, schema error, tool error |
+
+---
+
+## Core Modules
+
+### 1. Intent & Plan (`packages/core`)
+
+**`IntentSpec`** — full production schema (11 action types):
+
+```ts
+{
+  action_type: "swap" | "send" | "approve" | "revoke" | "deposit" |
+               "stake" | "withdraw" | "unstake" | "batch" | "rebalance" | "schedule",
+  chain: string,
+  asset_in?: string,
+  asset_out?: string,
+  amount: string,
+  constraints?: { slippage?: number; deadline?: number },
+  target_protocol?: string,
+  recipient?: string
+}
+```
+
+**`MvpIntent`** — minimal intent for the mock CLI path:
+
+```ts
+{ action: "send", chain: string, asset: string, amount: string, to: string }
+```
+
+`buildPlan(intent: MvpIntent)` → single `simulate_transfer` step.
+`mvpToIntentSpec(intent: MvpIntent)` → `IntentSpec` for `--engine orchestrator`.
+
+### 2. Tool Registry (`packages/tools`)
+
+All tools implement `ToolDefinition<TInput, TOutput>` with Zod-validated schemas.
+
+| Tool | Type | Responsibility |
+|---|---|---|
+| `chain_read` | EVM | Balance, nonce, allowance queries |
+| `quote_route` | EVM | DEX quote and route |
+| `build_tx` | EVM | Generate transaction calldata |
+| `simulate_tx` | EVM | Pre-execution simulation |
+| `sign_tx` | EVM | Sign via ConsentScope-gated Signer |
+| `send_tx` | EVM | Broadcast signed transaction |
+| `wait_confirm` | EVM | Poll for receipt and parse logs |
+| `simulate_transfer` | Mock | Simulated transfer (returns mock tx hash) |
+
+`LUCIDWALLET_USE_STUBS=true` activates stub responses for all EVM tools.
+
+### 3. Orchestrator (`apps/server/src/orchestrator.ts`)
+
+```ts
+const { plan, results, auditLog } = await orchestrator.execute(intentSpec);
+```
+
+- Builds plan from `IntentSpec` (supports `send`, `swap`, `approve+swap`)
+- Drives `ExecutionStateMachine`: `PLANNED → APPROVED → EXECUTING → CONFIRMED/FAILED`
+- Chains tool outputs into subsequent step inputs (e.g. `build_tx` output feeds `simulate_tx`)
+- Records `step_start` / `step_success` / `step_failed` events in `AuditLog`
+- Returns `auditLog: AuditEntry[]` in the result
+
+```ts
+orchestrator.plan(intentSpec)   // plan generation only, no execution
+```
+
+### 4. Wallet Core (`packages/wallet-core`)
+
+| Module | Description |
+|---|---|
+| `Signer` | Validates signing requests against `ConsentScope`: chain, spender allowlist, token list, max amount, expiry, risk level |
+| `TxQueue` | Nonce management and concurrency control |
+| `AuditLog` | In-memory event log — `record(event, payload)` / `list()` |
+| `SecureStorage` | Key-value store (in-memory; file persistence planned in Phase 3) |
+
+**`ConsentScope` example:**
+
+```ts
+{
+  chain: "evm",
+  spender_allowlist: ["0xSWAP_CONTRACT"],
+  tokens: ["USDC"],
+  max_amount: "200",
+  expiry: Date.now() + 60_000,
+  risk_level: "low"
+}
+```
+
+---
+
+## Data Flow
+
+### Mock path (`--engine mock`, default for JSON/sample input)
+
+```
+Input: --sample-index / --intent / --intent-file
+  → parseIntent()  →  MvpIntent
+  → buildPlan()    →  MvpPlan  (1 step: simulate_transfer)
+  → simulate_transfer tool  →  { tx_hash, summary }
+  → logRun()  →  experiments/logs/run_<ts>.json
+```
+
+### Orchestrator path (`--engine orchestrator` or `--nl`)
+
+```
+Input: --nl <text>  OR  --intent / --sample with --engine orchestrator
+  → parseNaturalLanguageIntent()  →  IntentSpec    (NL path)
+    OR  mvpToIntentSpec()          →  IntentSpec    (JSON path)
+  → LUCIDWALLET_USE_STUBS=true  (auto-set if not already set)
+  → new Signer(ConsentScope)
+  → new Orchestrator(signer)
+  → Orchestrator.execute(intentSpec)
+      DRAFT → PLANNED → APPROVED → EXECUTING
+      for each step:
+        [step_start]  →  tool.handler()  →  [step_success | step_failed]
+        resolve input from previous step outputs
+      → CONFIRMED / FAILED
+  → { plan, results, auditLog }
+  → logRun()  →  experiments/logs/run_<ts>.json
+```
+
+### HTTP API flow
+
+```
+POST /api/plan  or  /api/execute
+  → readJsonBody()  →  { text, templateFile? }
+  → parseNaturalLanguageIntent(text)  →  IntentSpec
+  → buildScope(intentSpec)  →  ConsentScope
+  → new Signer(scope)  →  new Orchestrator(signer)
+  → orchestrator.plan()      [for /api/plan]
+    or orchestrator.execute() [for /api/execute]
+  → JSON: { ok: true, data: { plan?, results?, scope } }
+```
+
+---
+
+## Dataset Specifications
+
+All specifications follow RFC 2119 (MUST / SHOULD / MAY). See `datasets/spec/`:
+
+| File | Contents |
+|---|---|
+| `query.md` | Natural language intent format |
+| `metadata.md` | Chain, task type, difficulty, account state |
+| `constraints.md` | User constraints + system safety constraints |
+| `tools.md` | Tool interface specifications (all 8 tools) |
+| `output.md` | Transaction sequence output format |
+| `coverage.md` | Coverage matrix |
+
+**Sample data files:**
+
+- `datasets/mvp-samples/intent_samples.json` — 5 fixed `MvpIntent` samples
+- `datasets/data/samples.jsonl` — JSONL (query + metadata + constraints + expected_output)
+- `datasets/nl/templates/send_swap.json` — NL template patterns for swap and send
+
+---
+
+## Test Coverage
+
+**49 tests · 8 files · all passing**
+
+| File | Package | Tests | What it covers |
+|---|---|---|---|
+| `schemas.test.ts` | `core` | 3 | IntentSpec / Plan / ConsentScope Zod validation |
+| `dataset.test.ts` | `core` | 32 | DatasetLoader, sample validation, filter, stats |
+| `signer.test.ts` | `wallet-core` | 3 | ConsentScope grant / deny paths |
+| `build_plan.test.ts` | `server` | 1 | `buildPlan()` → `simulate_transfer` contract |
+| `nl_orchestrator.test.ts` | `server` | 1 | NL → IntentSpec → Orchestrator end-to-end (stubs) |
+| `orchestrator.plan.test.ts` | `server` | 1 | Plan generation, `required_permissions` |
+| `orchestrator.flow.test.ts` | `server` | 2 | Tool output chaining, error classification |
+| `http.test.ts` | `server` | 6 | `/api/plan`, `/api/execute`, 400/404, OPTIONS |
 
 ```bash
 npm run test
 ```
 
-### Build
-
-```bash
-npm run build
-```
-
-### Run Early Simulation MVP CLI
-
-```bash
-# Build the project
-npm run build
-
-# Run default sample (index 0)
-node apps/server/dist/cli.js
-
-# Run specific sample index
-node apps/server/dist/cli.js --sample-index 2
-
-# Use custom intent (JSON format)
-node apps/server/dist/cli.js --intent '{"action":"send","chain":"sepolia","asset":"ETH","amount":"0.1","to":"0x1111111111111111111111111111111111111111"}'
-
-# Use natural language intent (Chinese or English)
-node apps/server/dist/cli.js --nl "send 0.1 ETH to 0x1111111111111111111111111111111111111111"
-node apps/server/dist/cli.js --nl "用200 USDC换ETH滑点0.5%"
-
-# Specify natural language template file
-node apps/server/dist/cli.js --nl "swap 200 USDC to ETH" --nl-template-file datasets/nl/templates/send_swap.json
-
-# Use OpenAI GPT-5.2 for natural language parsing (fallback to templates on failure)
-set LUCIDWALLET_OPENAI_API_KEY=your_key
-set LUCIDWALLET_OPENAI_MODEL=gpt-5.2
-node apps/server/dist/cli.js --nl "用200 USDC换ETH滑点0.5%"
-
-# Read intent from file
-node apps/server/dist/cli.js --intent-file path/to/intent.json
-```
-
-Run results will:
-
-- Output plan steps and execution results (JSON format)
-- Automatically save logs to `experiments/logs/run_<timestamp>.json`
-
-For more usage, see `prototypes/mvp-sim-cli/README.md`
-
-## Core Modules
-
-### 1. Intent & Plan (packages/core)
-
-Defines data structures for user intents and execution plans:
-
-**Full IntentSpec** (for production):
-
-```ts
-{
-  action_type: "swap",
-  chain: "evm",
-  asset_in: "USDC",
-  asset_out: "ETH",
-  amount: "200",
-  constraints: { slippage: 0.5 }
-}
-```
-
-**MVP Intent** (for early simulation prototype):
-
-```ts
-{
-  action: "send",
-  chain: "sepolia",
-  asset: "ETH",
-  amount: "0.1",
-  to: "0x1111111111111111111111111111111111111111"
-}
-```
-
-MVP Intent is a minimal intent structure focused on validating core workflows, supporting:
-
-- Single action type (currently only `send`)
-- Single chain, single asset
-- JSON/sample CLI path: `buildPlan()` produces a single `simulate_transfer` step
-
-### 2. Tool Registry (packages/tools)
-
-Unified tool interface. MVP includes:
-
-| Tool                  | Responsibility                          | Type |
-| --------------------- | ---------------------------------------- | ---- |
-| `chain_read`          | Balance, nonce, allowance queries       | EVM  |
-| `quote_route`         | DEX quotes and routing                   | EVM  |
-| `build_tx`            | Generate transaction calldata            | EVM  |
-| `simulate_tx`         | Simulation/pre-execution                 | EVM  |
-| `sign_tx`             | Signing (via Wallet Core)                | EVM  |
-| `send_tx`             | Broadcast transaction                   | EVM  |
-| `wait_confirm`        | Confirmation and receipt parsing         | EVM  |
-| `simulate_transfer`   | Simulate transfer execution (returns mock tx hash) | Mock |
-
-**Mock Tools** (`packages/tools/src/mock/`):
-
-- Used for early prototype validation without real chain connection
-- Return simulated transaction hashes and execution summaries
-- Support error scenario testing (e.g., invalid amounts)
-
-See `datasets/spec/tools.md` for complete tool specifications following RFC 2119 standards.
-
-### 3. Orchestrator (apps/server)
-
-Core scheduler responsible for:
-
-- Intent parsing → Plan generation
-- Execution state machine progression
-- Tool output chaining
-- Error classification and recovery
-
-**CLI Entry Point** (`apps/server/src/cli.ts`):
-
-- Command-line interface for early simulation MVP
-- **Path A (`--nl` / `--intent-nl`, optional `--nl-template-file`)**: `parseNaturalLanguageIntent()` → `IntentSpec` → `Orchestrator.execute()` (EVM tool stack; CLI sets `LUCIDWALLET_USE_STUBS=true` when not already set so runs default to stub/offline-friendly behavior)
-- **Path B (samples / `--intent` / `--intent-file` / `--sample-file`)**: `parseIntent()` → `MvpIntent` → `buildPlan()` → `simulate_transfer` only
-- Outputs results and saves logs to `experiments/logs/`
-
-### 4. Wallet Core (packages/wallet-core)
-
-- **Signer**: Signature control based on ConsentScope
-- **TxQueue**: Nonce management and concurrency limits
-- **SecureStorage**: Local encrypted storage
-- **AuditLog**: Execution logs
-
-## Data Flow
-
-### Complete Flow (Production)
-
-```
-User input intent
-    ↓
-IntentSpec normalization
-    ↓
-Planner generates Plan (with approve+swap steps)
-    ↓
-Policy calculates required_permissions
-    ↓
-UI displays task card + authorization list
-    ↓
-User approves consent
-    ↓
-Execution state machine step-by-step execution (chain_read → approve → build → simulate → sign → send → confirm)
-    ↓
-On failure, enter recovery branch
-    ↓
-After completion, produce result summary
-```
-
-### Early Simulation MVP Flow
-
-Two CLI execution paths (see `apps/server/src/cli.ts`):
-
-**Path A — Natural language (`--nl` / `--intent-nl`)**
-
-```
-NL string
-    ↓
-parseNaturalLanguageIntent() → IntentSpec
-    ↓
-Orchestrator.execute() (EVM tools; stub mode when LUCIDWALLET_USE_STUBS=true)
-    ↓
-logRun() → experiments/logs/
-```
-
-**Path B — JSON or samples (no `--nl`)**
-
-```
-CLI input (JSON / sample index / --intent / --intent-file / --sample-file)
-    ↓
-parseIntent() → MvpIntent
-    ↓
-buildPlan() → single simulate_transfer step
-    ↓
-simulate_transfer tool → tx_hash + summary
-    ↓
-logRun() → experiments/logs/
-```
-
-**Key Differences**:
-
-- Path B uses only the mock `simulate_transfer` tool and does not run `Orchestrator`; Path A runs the full orchestrator stack (stubs by default in CLI).
-- No user approval required in these CLI flows (simulated / stubbed)
-- Automatic log recording (for experiment analysis)
-
-## Dataset Specifications
-
-The project includes standardized dataset specifications following RFC 2119 conventions. See `datasets/spec/` for complete documentation:
-
-- **Query Specification** (`spec/query.md`): Natural language intent format
-- **Metadata Specification** (`spec/metadata.md`): Chain, task type, difficulty, account state
-- **Constraints Specification** (`spec/constraints.md`): User constraints + system safety constraints
-- **Tools & Environment Specification** (`spec/tools.md`): Agent-available tool interfaces
-- **Output Format Specification** (`spec/output.md`): Transaction sequence output format
-
-All specifications use normative keywords (MUST, SHOULD, MAY) as defined in RFC 2119 for clarity and precision.
-
-## Test Coverage
-
-### Unit Tests
-
-| Test File                      | Coverage                              |
-| ----------------------------- | ------------------------------------- |
-| `schemas.test.ts`             | Intent/Plan/Consent schema validation |
-| `dataset.test.ts`             | Dataset loader and sample validation  |
-| `signer.test.ts`              | ConsentScope constraints and rejection paths |
-| `build_plan.test.ts`          | MVP `buildPlan` → `simulate_transfer` contract |
-| `nl_orchestrator.test.ts`     | NL → `IntentSpec` → Orchestrator (stubs) |
-| `orchestrator.plan.test.ts`   | Plan generation and permission list   |
-| `orchestrator.flow.test.ts`   | Execution chain and output chaining   |
-
-### Early Simulation MVP Validation
-
-- **Sample Dataset**: `datasets/mvp-samples/intent_samples.json` (5 fixed samples)
-- **CLI Testing**: Run `node apps/server/dist/cli.js` to validate complete flow
-- **Log Validation**: Check JSON log format in `experiments/logs/`
-- **Error Handling**: Test error paths for invalid inputs
+---
 
 ## Error Codes
 
-| Error Code                  | Meaning        |
-| -------------------------- | -------------- |
-| `INSUFFICIENT_BALANCE`     | Insufficient balance |
-| `INSUFFICIENT_ALLOWANCE`   | Insufficient allowance |
-| `SLIPPAGE_TOO_HIGH`        | Slippage too high |
-| `NONCE_CONFLICT`           | Nonce conflict |
-| `REVERT`                   | Contract revert |
+| Code | Meaning |
+|---|---|
+| `INSUFFICIENT_BALANCE` | Wallet balance below required amount |
+| `INSUFFICIENT_ALLOWANCE` | ERC-20 allowance below required amount |
+| `SLIPPAGE_TOO_HIGH` | Actual slippage exceeds constraint |
+| `NONCE_CONFLICT` | Transaction nonce conflict |
+| `REVERT` | Contract revert or generic failure |
+
+---
+
+## Roadmap
+
+See [ROADMAP.md](./ROADMAP.md) for the full versioned roadmap.
+
+| Phase | Status | Highlights |
+|---|---|---|
+| Phase 0 — Foundation | ✅ Done | Monorepo · schemas · tool registry · mock tools |
+| Phase 1 — CLI Dual-Path | ✅ Done | NL parser · orchestrator · state machine · RFC specs · 43 tests |
+| Phase 2 — API & Observability | ✅ Done | `--engine` flag · HTTP API + 6 tests · AuditLog · 49 tests |
+| Phase 3 — Coverage & Quality | 🔲 Next | NL templates · TxQueue tests · `--dry-run` · error refactor |
+| Phase 4 — Real Chain Integration | 🔲 Planned | Sepolia RPC · real DEX · key management |
+| Phase 5 — Production | 🔲 Future | Frontend · ConsentScope approval UI · mainnet |
+
+---
 
 ## License
 
