@@ -148,11 +148,16 @@ const handler = async (req: http.IncomingMessage, res: http.ServerResponse) => {
   }
 };
 
+export { handler };
+
 const port = Number.parseInt(process.env.PORT ?? "4000", 10);
 const server = http.createServer((req, res) => {
   handler(req, res);
 });
 
-server.listen(port, () => {
-  console.log(`Lucid API server running on http://localhost:${port}`);
-});
+// Only auto-start when run directly (not during tests)
+if (!process.env.LUCIDWALLET_HTTP_NO_AUTOSTART) {
+  server.listen(port, () => {
+    console.log(`Lucid API server running on http://localhost:${port}`);
+  });
+}

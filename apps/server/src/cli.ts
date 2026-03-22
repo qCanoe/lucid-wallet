@@ -11,6 +11,14 @@ import { logRun } from "./logs/log_run.js";
 import { Orchestrator } from "./orchestrator.js";
 import { Signer } from "@lucidwallet/wallet-core";
 
+const mvpToIntentSpec = (intent: MvpIntent): IntentSpec => ({
+  action_type: intent.action,
+  chain: intent.chain,
+  asset_in: intent.asset,
+  amount: intent.amount,
+  recipient: intent.to
+});
+
 const getArg = (args: string[], name: string): string | undefined => {
   const index = args.indexOf(name);
   if (index === -1) {
@@ -50,6 +58,7 @@ const run = async (): Promise<void> => {
   const intentRaw = getArg(args, "--intent");
   const intentFile = getArg(args, "--intent-file");
   const sampleIndexRaw = getArg(args, "--sample-index");
+  const engine = getArg(args, "--engine") ?? "mock";
   const sampleFile =
     getArg(args, "--sample-file") ??
     path.join(process.cwd(), "datasets", "mvp-samples", "intent_samples.json");
@@ -100,6 +109,35 @@ const run = async (): Promise<void> => {
         }
       }
       intent = parseIntent(rawIntent);
+    }
+
+    if (engine === "orchestrator") {
+      intentSpec = mvpToIntentSpec(intent);
+      if (!process.env.LUCIDWALLET_USE_STUBS) {
+        process.env.LUCIDWALLET_USE_STUBS = "true";
+      }
+      const scope = consentScopeSchema.parse({
+        chain: intentSpec.chain,
+        spender_allowlist: ["0xSWAP_CONTRACT"],
+        tokens: intentSpec.asset_in ? [intentSpec.asset_in] : [],
+        max_amount: intentSpec.amount,
+        expiry: Date.now() + 60_000,
+        risk_level: "low"
+      });
+      const signer = new Signer(scope);
+      const orchestrator = new Orchestrator(signer);
+      const execution = await orchestrator.execute(intentSpec);
+      plan = execution.plan;
+      results = execution.results;
+      const logFile = await logRun({
+        intent: { intent_spec: intentSpec },
+        plan,
+        results
+      });
+      console.log("Orchestrator 执行完成。");
+      console.log(JSON.stringify({ plan, results }, null, 2));
+      console.log(`日志已写入: ${logFile}`);
+      return;
     }
 
     plan = buildPlan(intent);
