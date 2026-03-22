@@ -1,7 +1,9 @@
 import http from "node:http";
 import { URL } from "node:url";
 import { consentScopeSchema } from "@lucidwallet/core";
+import { ZodError } from "zod";
 import { ERROR_CODES } from "@lucidwallet/shared";
+import { mapErrorCode } from "./error_codes.js";
 import { Signer } from "@lucidwallet/wallet-core";
 import { parseNaturalLanguageIntent } from "./intents/nl/parse_nl_intent.js";
 import { Orchestrator } from "./orchestrator.js";
@@ -26,19 +28,6 @@ type PlanPayload = {
   templateFile?: string;
 };
 
-const mapErrorCode = (message: string): string => {
-  const normalized = message.toLowerCase();
-  if (normalized.includes("parse")) {
-    return ERROR_CODES.REVERT;
-  }
-  if (normalized.includes("invalid_amount")) {
-    return ERROR_CODES.REVERT;
-  }
-  if (normalized.includes("payload_too_large")) {
-    return ERROR_CODES.REVERT;
-  }
-  return ERROR_CODES.REVERT;
-};
 
 const sendJson = <T>(res: http.ServerResponse, status: number, payload: ApiResponse<T>) => {
   res.writeHead(status, {
@@ -139,7 +128,21 @@ const handler = async (req: http.IncomingMessage, res: http.ServerResponse) => {
       data: { plan: execution.plan, results: execution.results, scope }
     });
   } catch (error) {
+    if (error instanceof ZodError) {
+      sendJson(res, 422, {
+        ok: false,
+        error: { code: ERROR_CODES.REVERT, message: "schema_validation_error" }
+      });
+      return;
+    }
     const message = error instanceof Error ? error.message : "unknown_error";
+    if (message === "payload_too_large") {
+      sendJson(res, 413, {
+        ok: false,
+        error: { code: ERROR_CODES.REVERT, message }
+      });
+      return;
+    }
     const code = mapErrorCode(message);
     sendJson(res, 500, {
       ok: false,
@@ -148,11 +151,16 @@ const handler = async (req: http.IncomingMessage, res: http.ServerResponse) => {
   }
 };
 
+export { handler };
+
 const port = Number.parseInt(process.env.PORT ?? "4000", 10);
 const server = http.createServer((req, res) => {
   handler(req, res);
 });
 
-server.listen(port, () => {
-  console.log(`Lucid API server running on http://localhost:${port}`);
-});
+// Only auto-start when run directly (not during tests)
+if (!process.env.LUCIDWALLET_HTTP_NO_AUTOSTART) {
+  server.listen(port, () => {
+    console.log(`Lucid API server running on http://localhost:${port}`);
+  });
+}

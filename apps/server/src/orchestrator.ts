@@ -15,7 +15,7 @@ import {
   sendTxTool,
   waitConfirmTool
 } from "@lucidwallet/tools";
-import { Signer } from "@lucidwallet/wallet-core";
+import { Signer, AuditLog, AuditEntry } from "@lucidwallet/wallet-core";
 import { ERROR_CODES } from "@lucidwallet/shared";
 import { ExecutionStateMachine } from "./state_machine.js";
 
@@ -61,6 +61,7 @@ const normalizeAmountForChainRead = (amount: string, asset?: string): string => 
 export class Orchestrator {
   private readonly registry = new ToolRegistry();
   private readonly stateMachine = new ExecutionStateMachine();
+  private readonly auditLog = new AuditLog();
 
   constructor(private readonly signer: Signer) {
     this.registry.register(chainReadTool);
@@ -72,7 +73,7 @@ export class Orchestrator {
     this.registry.register(waitConfirmTool);
   }
 
-  async execute(intent: IntentSpec): Promise<{ plan: Plan; results: StepResult[] }> {
+  async execute(intent: IntentSpec): Promise<{ plan: Plan; results: StepResult[]; auditLog: AuditEntry[] }> {
     const plan = this.createPlan(intent);
     this.stateMachine.transition("PLANNED");
     const stepOutputs = new Map<string, unknown>();
@@ -87,6 +88,7 @@ export class Orchestrator {
     this.stateMachine.transition("EXECUTING");
 
     for (const step of plan.steps) {
+      this.auditLog.record("step_start", { step_id: step.step_id, tool: step.tool });
       const resolvedStep = this.resolveStepInput(step, stepOutputs, intent);
       const { result, output } = await this.executeStep(resolvedStep, context);
       this.stateMachine.recordResult(result);
@@ -94,15 +96,17 @@ export class Orchestrator {
         stepOutputs.set(step.step_id, output);
       }
       if (result.status === "failed") {
+        this.auditLog.record("step_failed", { step_id: step.step_id, error: result.error });
         this.stateMachine.transition("FAILED");
-        return { plan, results: this.stateMachine.getResults() };
+        return { plan, results: this.stateMachine.getResults(), auditLog: this.auditLog.list() };
       }
+      this.auditLog.record("step_success", { step_id: step.step_id });
     }
 
     this.stateMachine.transition("CONFIRMED");
     this.stateMachine.transition("DONE");
 
-    return { plan, results: this.stateMachine.getResults() };
+    return { plan, results: this.stateMachine.getResults(), auditLog: this.auditLog.list() };
   }
 
   plan(intent: IntentSpec): Plan {
