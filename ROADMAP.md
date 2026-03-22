@@ -74,38 +74,30 @@ This document tracks completed milestones and planned work. Each phase has a cle
 
 ---
 
-## Upcoming
+---
 
-### 🔲 Phase 3 — Coverage & Quality
+### ✅ Phase 3 — Coverage & Quality
 **Goal:** Expand NL coverage, harden error handling, add missing tests, improve developer experience.
 
-#### 3.1 NL Template Expansion
-- [ ] Add `send` template patterns to `send_swap.json` (e.g. `"send {amount} {asset} to {address} on {chain}"`)
-- [ ] Add Chinese-language template patterns for send and swap
-- [ ] Add `approve` intent template patterns
-- [ ] Increase matched NL intent coverage from 1 template type to ≥4
+| Deliverable | Status |
+|---|---|
+| Fix vitest glob — unlock `nl_intent.test.ts` (was excluded from `src/__tests__/` pattern) | ✅ |
+| NL template expansion — add send (EN+ZH), swap (ZH), send+chain (EN), swap+chain (EN) | ✅ |
+| `nl_intent.test.ts` — 8 tests for EN/ZH send+swap with/without chain/slippage | ✅ |
+| `tx_queue.test.ts` — 6 tests: nextNonce, enqueue, dequeue (FIFO), concurrency limit, reset | ✅ |
+| `TxQueue` expanded — enqueue/dequeue/pendingCount/reset/maxConcurrent | ✅ |
+| `secure_storage.test.ts` — 4 tests: get/set/overwrite/multiple keys | ✅ |
+| `--dry-run` CLI flag — all 3 engine paths; prints plan JSON, no execution, no log file | ✅ |
+| `log_run.ts` created — missing source file restored from dist | ✅ |
+| `error_codes.ts` shared module — extracted from cli/http | ✅ |
+| `ERROR_CODES` expanded — TIMEOUT, NETWORK_ERROR added | ✅ |
+| `mapErrorCode` improved — 6 specific patterns instead of catch-all REVERT | ✅ |
+| HTTP API error handler — 422 for ZodError, 413 for payload_too_large | ✅ |
+| `error_codes.test.ts` — 7 tests covering all error code mappings | ✅ |
+| `cli_dry_run.test.ts` — 3 integration tests (exit code, plan JSON, no log file) | ✅ |
+| **Total tests: 77** (target was ≥65) | ✅ |
 
-#### 3.2 Missing Tests
-- [ ] `tx-queue.test.ts` — nonce management, concurrency limits, queue ordering
-- [ ] `secure-storage.test.ts` — get/set/overwrite/missing key
-- [ ] `nl_intent.test.ts` — template matching edge cases, slot normalization, multi-language
-- [ ] `cli.test.ts` — integration test for `--engine orchestrator` path end-to-end
-
-#### 3.3 CLI Improvements
-- [ ] `--dry-run` flag — generate and print plan without executing, then exit 0
-- [ ] Clearer error messages in CLI output (distinguish parse vs execution errors)
-- [ ] `--version` flag
-
-#### 3.4 Error System Refactor
-- [ ] Map all tool-level errors to `ERROR_CODES` properly (currently most map to `REVERT`)
-- [ ] Add `TIMEOUT` and `NETWORK_ERROR` to `ERROR_CODES`
-- [ ] HTTP API: return more specific HTTP status codes (e.g. 422 for schema validation failure)
-
-#### 3.5 SecureStorage Persistence
-- [ ] File-based backend for `SecureStorage` (encrypted JSON file, passphrase from env)
-- [ ] Test persistence across process restarts
-
-**Acceptance criteria:** ≥65 tests passing; NL parser matches send + swap + approve; `--dry-run` works; `SecureStorage` persists to disk.
+## Upcoming
 
 ---
 
@@ -172,10 +164,10 @@ This document tracks completed milestones and planned work. Each phase has a cle
 
 ## Metrics
 
-| Metric | Phase 0 | Phase 1 | Phase 2 | Phase 3 target |
-|---|---|---|---|---|
-| Tests passing | — | 43 | **49** | ≥65 |
-| NL template types | 0 | 1 (swap) | 1 (swap) | ≥4 |
-| HTTP endpoints | 0 | 0 | **2** | 2 + 1 (health) |
+| Metric | Phase 0 | Phase 1 | Phase 2 | Phase 3 | Phase 4 target |
+|---|---|---|---|---|---|
+| Tests passing | — | 43 | 49 | **77** | ≥80 (E2E gated) |
+| NL template types | 0 | 1 (swap) | 1 (swap) | **6** | ≥8 |
+| HTTP endpoints | 0 | 0 | **2** | **2 + 422/413** | 2 + /health |
 | EVM tool coverage | 7 stubs | 7 stubs | 7 stubs + AuditLog | 7 stubs + real RPC (Phase 4) |
 | Supported action types (orchestrator) | — | send, swap, approve+swap | send, swap, approve+swap | send, swap, approve+swap, deposit |

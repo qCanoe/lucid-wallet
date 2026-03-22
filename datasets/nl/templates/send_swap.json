@@ -22,6 +22,116 @@
         "constraints.slippage": "{slippage}"
       },
       "confidence": 0.8
+    },
+    {
+      "id": "swap_with_chain_en",
+      "intent_type": "swap",
+      "language": "en",
+      "patterns": [
+        "swap {amount} {asset_in} to {asset_out} on {chain}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset_in": { "type": "asset" },
+        "asset_out": { "type": "asset" },
+        "chain": { "type": "chain" }
+      },
+      "mapping": {
+        "action_type": "swap",
+        "chain": "{chain}",
+        "asset_in": "{asset_in}",
+        "asset_out": "{asset_out}",
+        "amount": "{amount}"
+      },
+      "confidence": 0.8
+    },
+    {
+      "id": "swap_basic_zh",
+      "intent_type": "swap",
+      "language": "zh",
+      "patterns": [
+        "用{amount} {asset_in}换{asset_out}滑点{slippage}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset_in": { "type": "asset" },
+        "asset_out": { "type": "asset" },
+        "slippage": { "type": "slippage" }
+      },
+      "mapping": {
+        "action_type": "swap",
+        "chain": "evm",
+        "asset_in": "{asset_in}",
+        "asset_out": "{asset_out}",
+        "amount": "{amount}",
+        "constraints.slippage": "{slippage}"
+      },
+      "confidence": 0.8
+    },
+    {
+      "id": "send_basic_en",
+      "intent_type": "send",
+      "language": "en",
+      "patterns": [
+        "send {amount} {asset} to {address}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset": { "type": "asset" },
+        "address": { "type": "address" }
+      },
+      "mapping": {
+        "action_type": "send",
+        "chain": "evm",
+        "asset_in": "{asset}",
+        "amount": "{amount}",
+        "recipient": "{address}"
+      },
+      "confidence": 0.8
+    },
+    {
+      "id": "send_with_chain_en",
+      "intent_type": "send",
+      "language": "en",
+      "patterns": [
+        "transfer {amount} {asset} to {address} on {chain}",
+        "send {amount} {asset} to {address} on {chain}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset": { "type": "asset" },
+        "address": { "type": "address" },
+        "chain": { "type": "chain" }
+      },
+      "mapping": {
+        "action_type": "send",
+        "chain": "{chain}",
+        "asset_in": "{asset}",
+        "amount": "{amount}",
+        "recipient": "{address}"
+      },
+      "confidence": 0.8
+    },
+    {
+      "id": "send_basic_zh",
+      "intent_type": "send",
+      "language": "zh",
+      "patterns": [
+        "把{amount} {asset}转给{address}"
+      ],
+      "slots": {
+        "amount": { "type": "amount" },
+        "asset": { "type": "asset" },
+        "address": { "type": "address" }
+      },
+      "mapping": {
+        "action_type": "send",
+        "chain": "evm",
+        "asset_in": "{asset}",
+        "amount": "{amount}",
+        "recipient": "{address}"
+      },
+      "confidence": 0.8
     }
   ]
 }

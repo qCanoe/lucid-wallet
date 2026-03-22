@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { IntentSpec, MvpIntent, StepResult, consentScopeSchema } from "@lucidwallet/core";
-import { ERROR_CODES } from "@lucidwallet/shared";
+import { mapErrorCode } from "./error_codes.js";
 import { ToolRegistry } from "@lucidwallet/tools";
 import { simulateTransferTool } from "@lucidwallet/tools";
 import { parseIntent } from "./intents/parse_intent.js";
 import { parseNaturalLanguageIntent } from "./intents/nl/parse_nl_intent.js";
 import { buildPlan } from "./plans/build_plan.js";
-import { logRun } from "./logs/log_run.js";
+import { logRun } from "./log_run.js";
 import { Orchestrator } from "./orchestrator.js";
 import { Signer } from "@lucidwallet/wallet-core";
 
@@ -40,19 +40,25 @@ const loadSampleIntent = async (
   return JSON.stringify(entry);
 };
 
-const mapErrorCode = (message: string): string => {
-  const normalized = message.toLowerCase();
-  if (normalized.includes("parse")) {
-    return ERROR_CODES.REVERT;
+
+const buildScopeAndOrchestrator = (spec: IntentSpec) => {
+  if (!process.env.LUCIDWALLET_USE_STUBS) {
+    process.env.LUCIDWALLET_USE_STUBS = "true";
   }
-  if (normalized.includes("invalid_amount")) {
-    return ERROR_CODES.REVERT;
-  }
-  return ERROR_CODES.REVERT;
+  const scope = consentScopeSchema.parse({
+    chain: spec.chain,
+    spender_allowlist: ["0xSWAP_CONTRACT"],
+    tokens: spec.asset_in ? [spec.asset_in] : [],
+    max_amount: spec.amount,
+    expiry: Date.now() + 60_000,
+    risk_level: "low"
+  });
+  return new Orchestrator(new Signer(scope));
 };
 
 const run = async (): Promise<void> => {
   const args = process.argv.slice(2);
+  const dryRun = args.includes("--dry-run");
   const intentNl = getArg(args, "--intent-nl") ?? getArg(args, "--nl");
   const nlTemplateFile = getArg(args, "--nl-template-file");
   const intentRaw = getArg(args, "--intent");
@@ -73,19 +79,14 @@ const run = async (): Promise<void> => {
       intentSpec = await parseNaturalLanguageIntent(intentNl, {
         templateFile: nlTemplateFile
       });
-      if (!process.env.LUCIDWALLET_USE_STUBS) {
-        process.env.LUCIDWALLET_USE_STUBS = "true";
+      const orchestrator = buildScopeAndOrchestrator(intentSpec);
+
+      if (dryRun) {
+        plan = orchestrator.plan(intentSpec);
+        console.log(JSON.stringify({ dry_run: true, plan }, null, 2));
+        return;
       }
-      const scope = consentScopeSchema.parse({
-        chain: intentSpec.chain,
-        spender_allowlist: ["0xSWAP_CONTRACT"],
-        tokens: intentSpec.asset_in ? [intentSpec.asset_in] : [],
-        max_amount: intentSpec.amount,
-        expiry: Date.now() + 60_000,
-        risk_level: "low"
-      });
-      const signer = new Signer(scope);
-      const orchestrator = new Orchestrator(signer);
+
       const execution = await orchestrator.execute(intentSpec);
       plan = execution.plan;
       results = execution.results;
@@ -113,19 +114,14 @@ const run = async (): Promise<void> => {
 
     if (engine === "orchestrator") {
       intentSpec = mvpToIntentSpec(intent);
-      if (!process.env.LUCIDWALLET_USE_STUBS) {
-        process.env.LUCIDWALLET_USE_STUBS = "true";
+      const orchestrator = buildScopeAndOrchestrator(intentSpec);
+
+      if (dryRun) {
+        plan = orchestrator.plan(intentSpec);
+        console.log(JSON.stringify({ dry_run: true, plan }, null, 2));
+        return;
       }
-      const scope = consentScopeSchema.parse({
-        chain: intentSpec.chain,
-        spender_allowlist: ["0xSWAP_CONTRACT"],
-        tokens: intentSpec.asset_in ? [intentSpec.asset_in] : [],
-        max_amount: intentSpec.amount,
-        expiry: Date.now() + 60_000,
-        risk_level: "low"
-      });
-      const signer = new Signer(scope);
-      const orchestrator = new Orchestrator(signer);
+
       const execution = await orchestrator.execute(intentSpec);
       plan = execution.plan;
       results = execution.results;
@@ -141,6 +137,11 @@ const run = async (): Promise<void> => {
     }
 
     plan = buildPlan(intent);
+
+    if (dryRun) {
+      console.log(JSON.stringify({ dry_run: true, plan }, null, 2));
+      return;
+    }
 
     const registry = new ToolRegistry();
     registry.register(simulateTransferTool);
