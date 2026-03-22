@@ -2,7 +2,7 @@
 
 > An intent-driven agent wallet. Users express intents in natural language or structured form; the system automatically decomposes, plans, invokes tools, executes transactions, and handles failure recovery — completing tasks with **minimal interaction**.
 
-[![Tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)](#test-coverage)
+[![Tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)](#test-coverage)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](#license)
 
@@ -99,7 +99,7 @@ lucid-wallet/
 
 ```bash
 npm install          # install dependencies
-npm run test         # run all tests (49 passing)
+npm run test         # run all tests (77 passing)
 npm run build        # compile TypeScript
 ```
 
@@ -242,7 +242,9 @@ Parse and fully execute the intent (stub mode by default).
 |---|---|---|
 | `400` | `missing_text` | `text` field absent or blank |
 | `404` | `not_found` | Unknown route or wrong HTTP method |
-| `500` | *(error detail)* | NL parse failure, schema error, tool error |
+| `413` | `payload_too_large` | Request body too large |
+| `422` | `schema_validation_error` | Zod schema validation failure |
+| `500` | *(error detail)* | NL parse failure, tool error |
 
 ---
 
@@ -401,18 +403,23 @@ All specifications follow RFC 2119 (MUST / SHOULD / MAY). See `datasets/spec/`:
 
 ## Test Coverage
 
-**49 tests · 8 files · all passing**
+**77 tests · 13 files · all passing**
 
 | File | Package | Tests | What it covers |
 |---|---|---|---|
 | `schemas.test.ts` | `core` | 3 | IntentSpec / Plan / ConsentScope Zod validation |
 | `dataset.test.ts` | `core` | 32 | DatasetLoader, sample validation, filter, stats |
 | `signer.test.ts` | `wallet-core` | 3 | ConsentScope grant / deny paths |
+| `tx_queue.test.ts` | `wallet-core` | 6 | FIFO queue, concurrency limit, reset |
+| `secure_storage.test.ts` | `wallet-core` | 4 | get/set/overwrite/multi-key |
 | `build_plan.test.ts` | `server` | 1 | `buildPlan()` → `simulate_transfer` contract |
 | `nl_orchestrator.test.ts` | `server` | 1 | NL → IntentSpec → Orchestrator end-to-end (stubs) |
 | `orchestrator.plan.test.ts` | `server` | 1 | Plan generation, `required_permissions` |
 | `orchestrator.flow.test.ts` | `server` | 2 | Tool output chaining, error classification |
 | `http.test.ts` | `server` | 6 | `/api/plan`, `/api/execute`, 400/404, OPTIONS |
+| `nl_intent.test.ts` | `server` | 8 | EN/ZH send + swap templates with/without chain/slippage |
+| `error_codes.test.ts` | `server` | 7 | `mapErrorCode` — 6 patterns + REVERT fallback |
+| `cli_dry_run.test.ts` | `server` | 3 | `--dry-run` exit code, plan JSON, no log file |
 
 ```bash
 npm run test
@@ -428,6 +435,8 @@ npm run test
 | `INSUFFICIENT_ALLOWANCE` | ERC-20 allowance below required amount |
 | `SLIPPAGE_TOO_HIGH` | Actual slippage exceeds constraint |
 | `NONCE_CONFLICT` | Transaction nonce conflict |
+| `TIMEOUT` | Operation timed out |
+| `NETWORK_ERROR` | RPC or network connectivity failure |
 | `REVERT` | Contract revert or generic failure |
 
 ---
@@ -441,8 +450,8 @@ See [ROADMAP.md](./ROADMAP.md) for the full versioned roadmap.
 | Phase 0 — Foundation | ✅ Done | Monorepo · schemas · tool registry · mock tools |
 | Phase 1 — CLI Dual-Path | ✅ Done | NL parser · orchestrator · state machine · RFC specs · 43 tests |
 | Phase 2 — API & Observability | ✅ Done | `--engine` flag · HTTP API + 6 tests · AuditLog · 49 tests |
-| Phase 3 — Coverage & Quality | 🔲 Next | NL templates · TxQueue tests · `--dry-run` · error refactor |
-| Phase 4 — Real Chain Integration | 🔲 Planned | Sepolia RPC · real DEX · key management |
+| Phase 3 — Coverage & Quality | ✅ Done | 6 NL templates · TxQueue/SecureStorage tests · `--dry-run` · error codes · 77 tests |
+| Phase 4 — Real Chain Integration | 🔲 Next | Sepolia RPC · real DEX · key management |
 | Phase 5 — Production | 🔲 Future | Frontend · ConsentScope approval UI · mainnet |
 
 ---

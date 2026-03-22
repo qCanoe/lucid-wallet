@@ -2,7 +2,7 @@
 
 > 基于意图驱动的 Agent 钱包。用户以自然语言或结构化表单表达意图，系统自动拆解、规划、调用工具、执行交易并处理失败恢复，在**最少交互**下完成任务。
 
-[![Tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)](#测试覆盖)
+[![Tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)](#测试覆盖)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](#license)
 
@@ -99,7 +99,7 @@ lucid-wallet/
 
 ```bash
 npm install          # 安装依赖
-npm run test         # 运行全部测试（49 个，全部通过）
+npm run test         # 运行全部测试（77 个，全部通过）
 npm run build        # 编译 TypeScript
 ```
 
@@ -251,7 +251,9 @@ node apps/server/dist/http.js
 |---|---|---|
 | `400` | `missing_text` | `text` 字段缺失或为空 |
 | `404` | `not_found` | 未知路由或 HTTP 方法错误 |
-| `500` | *(错误详情)* | NL 解析失败、schema 校验错误、工具执行错误 |
+| `413` | `payload_too_large` | 请求体过大 |
+| `422` | `schema_validation_error` | Zod schema 校验失败 |
+| `500` | *(错误详情)* | NL 解析失败、工具执行错误 |
 
 ---
 
@@ -410,18 +412,23 @@ POST /api/plan  or  /api/execute
 
 ## 测试覆盖
 
-**49 个测试 · 8 个测试文件 · 全部通过**
+**77 个测试 · 13 个文件 · 全部通过**
 
 | 文件 | 包 | 测试数 | 覆盖内容 |
 |---|---|---|---|
 | `schemas.test.ts` | `core` | 3 | IntentSpec / Plan / ConsentScope Zod 校验 |
 | `dataset.test.ts` | `core` | 32 | DatasetLoader、样本校验、过滤、统计 |
 | `signer.test.ts` | `wallet-core` | 3 | ConsentScope 授权 / 拒绝路径 |
+| `tx_queue.test.ts` | `wallet-core` | 6 | FIFO 队列、并发限制、reset |
+| `secure_storage.test.ts` | `wallet-core` | 4 | get/set/覆盖/多键独立 |
 | `build_plan.test.ts` | `server` | 1 | `buildPlan()` → `simulate_transfer` 契约 |
 | `nl_orchestrator.test.ts` | `server` | 1 | NL → IntentSpec → Orchestrator 端到端（stub） |
 | `orchestrator.plan.test.ts` | `server` | 1 | 计划生成与 `required_permissions` |
 | `orchestrator.flow.test.ts` | `server` | 2 | 工具输出串联、错误分类 |
 | `http.test.ts` | `server` | 6 | `/api/plan`、`/api/execute`、400/404、OPTIONS 预检 |
+| `nl_intent.test.ts` | `server` | 8 | 中英文 send + swap 模板，含/不含 chain/slippage |
+| `error_codes.test.ts` | `server` | 7 | `mapErrorCode` — 6 种模式 + REVERT 兜底 |
+| `cli_dry_run.test.ts` | `server` | 3 | `--dry-run` 退出码、plan JSON、无日志文件 |
 
 ```bash
 npm run test
@@ -437,6 +444,8 @@ npm run test
 | `INSUFFICIENT_ALLOWANCE` | ERC-20 授权额度不足 |
 | `SLIPPAGE_TOO_HIGH` | 实际滑点超过约束 |
 | `NONCE_CONFLICT` | 交易 nonce 冲突 |
+| `TIMEOUT` | 操作超时 |
+| `NETWORK_ERROR` | RPC 或网络连接失败 |
 | `REVERT` | 合约 revert 或通用错误 |
 
 ---
@@ -450,8 +459,8 @@ npm run test
 | Phase 0 — 基础建设 | ✅ 完成 | Monorepo · schema · 工具注册表 · mock 工具 |
 | Phase 1 — CLI 双路径 | ✅ 完成 | NL 解析 · Orchestrator · 状态机 · RFC 规范 · 43 测试 |
 | Phase 2 — API 与可观测性 | ✅ 完成 | `--engine` 标志 · HTTP API + 6 测试 · AuditLog · 49 测试 |
-| Phase 3 — 覆盖率与质量 | 🔲 下一步 | NL 模板扩展 · TxQueue 测试 · `--dry-run` · 错误体系重构 |
-| Phase 4 — 真实链集成 | 🔲 计划中 | Sepolia RPC · 真实 DEX · 密钥管理 |
+| Phase 3 — 覆盖率与质量 | ✅ 完成 | 6 NL 模板 · TxQueue/SecureStorage 测试 · `--dry-run` · 错误码重构 · 77 测试 |
+| Phase 4 — 真实链集成 | 🔲 下一步 | Sepolia RPC · 真实 DEX · 密钥管理 |
 | Phase 5 — 生产就绪 | 🔲 远期 | 前端 UI · ConsentScope 授权流程 · 主网部署 |
 
 ---
